@@ -96,7 +96,12 @@ void MainWindow::on_menuOpenFolder_triggered()
     model = eptg::Load(pathName.toStdString());
 
     ui->fillList->clear();
+    ui->tagsEdit->clear();
     inspect_folder(*model, pathName, ".");
+    QPixmap void_image;
+    ui->label_2->setPixmap(void_image);
+    if (ui->fillList->count() > 0)
+        ui->fillList->setCurrentRow(0);
     this->setWindowTitle("eptgQt - " + pathName);
 }
 
