@@ -17,7 +17,12 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+private:
+    void openRecent(const QString & pathName);
+
 private slots:
+    void on_menuOpenRecent(QAction *action);
+
     void on_menuOpenFolder_triggered();
 
     void on_fillList_currentRowChanged(int currentRow);

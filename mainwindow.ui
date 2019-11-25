@@ -211,13 +211,24 @@
     <property name="title">
      <string>File</string>
     </property>
+    <widget class="QMenu" name="menuOpenRecent">
+     <property name="title">
+      <string>Open recent...</string>
+     </property>
+    </widget>
     <addaction name="menuOpenFolder"/>
+    <addaction name="menuOpenRecent"/>
    </widget>
    <addaction name="menuFile"/>
   </widget>
   <action name="menuOpenFolder">
    <property name="text">
     <string>Open Folder</string>
+   </property>
+  </action>
+  <action name="actionlj">
+   <property name="text">
+    <string>lj</string>
    </property>
   </action>
  </widget>

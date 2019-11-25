@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 #include <QFileDialog>
 #include <QKeyEvent>
+#include <QSettings>
+#include <QAction>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -10,11 +12,30 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     ui->tagsEdit->installEventFilter(this);
     ui->searchEdit->installEventFilter(this);
+
+    // load settings
+    QSettings settings("ttt", "eptg");
+    int size = settings.beginReadArray("recents");
+    for(int i=0 ; i<size ; i++)
+    {
+        settings.setArrayIndex(i);
+        QString path = settings.value("recent").toString();
+        ui->menuOpenRecent->addAction(path)->setData(path);
+    }
+    settings.endArray();
+
+    connect(ui->menuOpenRecent, SIGNAL(triggered(QAction*)), this, SLOT(on_menuOpenRecent(QAction*)));
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::on_menuOpenRecent(QAction *action)
+{
+    QString path = action->data().toString();
+    openRecent(path);
 }
 
 bool MainWindow::eventFilter(QObject* obj, QEvent *event)
@@ -74,6 +95,15 @@ QString PathAppend(const QString & path1, const QString & path2)
 
 void MainWindow::on_menuOpenFolder_triggered()
 {
+    QString pathName = QFileDialog::getExistingDirectory(this, "Select folder", "~");
+    if (pathName == "")
+        return;
+
+    openRecent(pathName);
+}
+
+void MainWindow::openRecent(const QString & pathName)
+{
     std::function<void(eptg::Model &, const QString, const QString)> inspect_folder;
     inspect_folder = [this,&inspect_folder](eptg::Model & model, const QString base_dir, const QString rel_dir)
         {
@@ -89,10 +119,6 @@ void MainWindow::on_menuOpenFolder_triggered()
                     inspect_folder(model, base_dir, PathAppend(rel_dir, f));
         };
 
-
-    QString pathName = QFileDialog::getExistingDirectory(this, "Select folder", "~");
-    if (pathName == "")
-        return;
     model = eptg::Load(pathName.toStdString());
 
     ui->fillList->clear();
@@ -103,6 +129,34 @@ void MainWindow::on_menuOpenFolder_triggered()
     if (ui->fillList->count() > 0)
         ui->fillList->setCurrentRow(0);
     this->setWindowTitle("eptgQt - " + pathName);
+
+    // set recent menu
+    if (ui->menuOpenRecent->actions().size() == 0)
+        ui->menuOpenRecent->addAction(pathName);
+    else
+    {
+        // remove duplicates
+        for(int i = ui->menuOpenRecent->actions().size() - 1 ; i >= 0 ; i--)
+            if (pathName == ui->menuOpenRecent->actions()[i]->text())
+                ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[i]);
+        // insert
+        QAction * qaction = new QAction(pathName);
+        qaction->setData(pathName);
+        ui->menuOpenRecent->insertAction(ui->menuOpenRecent->actions()[0], qaction);
+        // remove excess recents
+        while (ui->menuOpenRecent->actions().size() > 4)
+            ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[4]);
+    }
+
+    // save recent
+    QSettings settings("ttt", "eptg");
+    settings.beginWriteArray("recents");
+    for(int i = 0 ; i < ui->menuOpenRecent->actions().size() ; i++)
+    {
+        settings.setArrayIndex(i);
+        settings.setValue("recent", ui->menuOpenRecent->actions()[i]->text());
+    }
+    settings.endArray();
 }
 
 void MainWindow::on_fillList_currentRowChanged(int currentRow)
