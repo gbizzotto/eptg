@@ -21,15 +21,14 @@ private:
     void openRecent(const QString & pathName);
 
 private slots:
+    void fillListSelChanged();
+
     void on_menuOpenRecent(QAction *action);
 
     void on_menuOpenFolder_triggered();
 
-    void on_fillList_currentRowChanged(int currentRow);
-
     void on_tagsEdit_returnPressed();
 
-    //void changeEvent(QEvent *e);
     bool eventFilter(QObject* obj, QEvent *event);
 
     void on_searchEdit_returnPressed();

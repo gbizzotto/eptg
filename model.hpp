@@ -14,7 +14,8 @@ struct File
     std::set<std::string> tags;
 
     File(const std::string & rel_path);
-    void add_tag(const std::string & tag);
+    void insert_tag(const std::string & tag);
+    void erase_tag(const std::string & tag);
 };
 
 struct Model

@@ -27,9 +27,13 @@ File & Model::get_file(const std::string & rel_path)
     return it->second;
 }
 
-void File::add_tag(const std::string & tag)
+void File::insert_tag(const std::string & tag)
 {
     tags.insert(tag);
+}
+void File::erase_tag(const std::string & tag)
+{
+    tags.erase(tag);
 }
 
 Model::Model(const std::string & full_path)
@@ -70,7 +74,7 @@ std::unique_ptr<Model> Load(const std::string & full_path)
         const auto & f = files[filename];
         for (const auto tagname : f.toObject()["tags"].toArray())
             if (tagname.toString().size() > 0)
-                file.add_tag(tagname.toString().toStdString());
+                file.insert_tag(tagname.toString().toStdString());
     }
     return model;
 }
