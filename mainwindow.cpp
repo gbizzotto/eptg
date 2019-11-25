@@ -48,11 +48,16 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    statusCountLabel = new QLabel(this);
+    ui->statusbar->addWidget(statusCountLabel);
+
     ui->tagsEdit->installEventFilter(this);
     ui->searchEdit->installEventFilter(this);
     list_model.reset(new QStringListModel());
     ui->fillList->setModel(list_model.get());
-    ui->countLabel->setText(QString(std::to_string(list_model->rowCount()).c_str()));
+    statusCountLabel->setText(QString(std::to_string(list_model->rowCount()).c_str()) + " files");
+
 
     // load settings
     QSettings settings("ttt", "eptg");
@@ -214,7 +219,7 @@ void MainWindow::open(const QString & pathName)
            ,this
            ,SLOT(fillListSelChanged())
            );
-    ui->countLabel->setText(QString(std::to_string(list_model->rowCount()).c_str()));
+    statusCountLabel->setText(QString(std::to_string(list_model->rowCount()).c_str()) + " files");
     ui->tagsEdit->clear();
     ui->fillPreview->setPixmap(QPixmap());
     if (list_model->rowCount() > 0)
@@ -336,7 +341,7 @@ void MainWindow::on_searchEdit_returnPressed()
                ,this
                ,SLOT(fillListSelChanged())
                );
-        ui->countLabel->setText(QString(std::to_string(filtered_list_model->rowCount()).c_str()));
+        statusCountLabel->setText(QString(std::to_string(filtered_list_model->rowCount()).c_str()) + " files");
     }
     else
     {
@@ -346,7 +351,7 @@ void MainWindow::on_searchEdit_returnPressed()
                ,this
                ,SLOT(fillListSelChanged())
                );
-        ui->countLabel->setText(QString(std::to_string(list_model->rowCount()).c_str()));
+        statusCountLabel->setText(QString(std::to_string(list_model->rowCount()).c_str()) + " files");
     }
     if (ui->fillList->model()->rowCount() > 0)
         ui->fillList->setCurrentIndex(ui->fillList->model()->index(0, 0));

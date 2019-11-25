@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QStringListModel>
+#include <QLabel>
 #include <memory>
 #include "model.hpp"
 
@@ -37,6 +38,7 @@ private slots:
 private:
     std::unique_ptr<eptg::Model> model;
     Ui::MainWindow *ui;
+    QLabel *statusCountLabel;
     std::unique_ptr<QStringListModel> list_model;
     std::unique_ptr<QStringListModel> filtered_list_model;
 };
