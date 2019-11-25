@@ -16,6 +16,7 @@ struct File
     File(const std::string & rel_path);
     void insert_tag(const std::string & tag);
     void erase_tag(const std::string & tag);
+    bool has_tag(const std::string & tag) const;
 };
 
 struct Model

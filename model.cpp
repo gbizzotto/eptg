@@ -35,6 +35,10 @@ void File::erase_tag(const std::string & tag)
 {
     tags.erase(tag);
 }
+bool File::has_tag(const std::string & tag) const
+{
+    return tags.find(tag) != tags.end();
+}
 
 Model::Model(const std::string & full_path)
     : path(full_path)

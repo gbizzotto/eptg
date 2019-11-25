@@ -9,9 +9,12 @@
 #include <QPainter>
 #include <QStringListModel>
 #include <QModelIndexList>
+#include <QKeyEvent>
 
 QString PathAppend(const QString & path1, const QString & path2)
 {
+    if (path1.size() == 0)
+        return path2;
     return QDir::cleanPath(path1 + QDir::separator() + path2);
 }
 
@@ -47,7 +50,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     ui->tagsEdit->installEventFilter(this);
     ui->searchEdit->installEventFilter(this);
-    ui->fillList->setModel(new QStringListModel());
+    list_model.reset(new QStringListModel());
+    ui->fillList->setModel(list_model.get());
 
     // load settings
     QSettings settings("ttt", "eptg");
@@ -128,13 +132,13 @@ void MainWindow::fillListSelChanged()
 
     // set tag line into edit
     ui->tagsEdit->setText(tag_line);
-    ui->tagsEdit->setFocus();
+    //ui->tagsEdit->setFocus();
 }
 
 void MainWindow::on_menuOpenRecent(QAction *action)
 {
     QString path = action->data().toString();
-    openRecent(path);
+    open(path);
 }
 
 bool MainWindow::eventFilter(QObject* obj, QEvent *event)
@@ -143,64 +147,17 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
     {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         {
-            if (keyEvent->key() == Qt::Key_Up)
+            if (obj == ui->tagsEdit || obj == ui->searchEdit)
             {
-                auto do_select = [&](QListView * list, QLineEdit * edit)
-                    {
-                        if (list->model()->rowCount() == 0)
-                            return;
-                        auto selected_indices = list->selectionModel()->selectedIndexes();
-                        if (selected_indices.size() == 0)
-                            list->setCurrentIndex(list->model()->index(list->model()->rowCount()-1, 0));
-                        int lowest_index = selected_indices[0].row();
-                        for (int i=1 ; i<selected_indices.size() ; i++)
-                            if (selected_indices[i].row() < lowest_index)
-                                lowest_index = selected_indices[i].row();
-                        if (lowest_index > 0)
-                            list->setCurrentIndex(list->model()->index(lowest_index-1, 0));
-                        edit->setFocus();
-                    };
-                if (obj == ui->tagsEdit)
+                if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down)
                 {
-                    do_select(ui->fillList, ui->tagsEdit);
+                    QCoreApplication::postEvent(ui->fillList, new QKeyEvent(*keyEvent));
                     return true;
                 }
-                else if (obj == ui->searchEdit)
+                else if (keyEvent->key() == Qt::Key_Escape)
                 {
-                    if (ui->searchList->currentRow() <= 0)
-                        return true;
-                    ui->searchList->setCurrentRow(ui->searchList->currentRow() - 1);
-                    ui->searchEdit->setFocus();
-                    return true;
-                }
-            }
-            else if(keyEvent->key() == Qt::Key_Down)
-            {
-                auto do_select = [&](QListView * list, QLineEdit * edit)
-                    {
-                        if (list->model()->rowCount() == 0)
-                            return;
-                        auto selected_indices = list->selectionModel()->selectedIndexes();
-                        if (selected_indices.size() == 0)
-                            list->setCurrentIndex(list->model()->index(0, 0));
-                        int highest_index = selected_indices[0].row();
-                        for (int i=1 ; i<selected_indices.size() ; i++)
-                            if (selected_indices[i].row() > highest_index)
-                                highest_index = selected_indices[i].row();
-                        if (highest_index < list->model()->rowCount() - 1)
-                            list->setCurrentIndex(list->model()->index(highest_index+1, 0));
-                        edit->setFocus();
-                    };
-                if (obj == ui->tagsEdit)
-                {
-                    do_select(ui->fillList, ui->tagsEdit);
-                    return true;
-                }
-                else if (obj == ui->searchEdit)
-                {
-                    if (ui->searchList->currentRow()+1 >= ui->searchList->count())
-                        return true;
-                    ui->searchList->setCurrentRow(ui->searchList->currentRow() + 1);
+                    ui->searchEdit->setText("");
+                    on_searchEdit_returnPressed();
                     ui->searchEdit->setFocus();
                     return true;
                 }
@@ -217,19 +174,18 @@ void MainWindow::on_menuOpenFolder_triggered()
     if (pathName == "")
         return;
 
-    openRecent(pathName);
+    open(pathName);
 }
 
-void MainWindow::openRecent(const QString & pathName)
+std::unique_ptr<QStringListModel> SweepFolder(const QString & pathName)
 {
-    std::function<void(eptg::Model &, const QString, const QString)> inspect_folder;
-    inspect_folder = [this,&inspect_folder](eptg::Model & model, const QString base_dir, const QString rel_dir)
+    std::function<void(QStringListModel*, const QString, const QString)> inspect_folder;
+    inspect_folder = [&inspect_folder](QStringListModel * list_model, const QString base_dir, const QString rel_dir)
         {
             QDir directory(PathAppend(base_dir, rel_dir));
-            QStringList images = directory.entryList(QStringList() << "*.jpg" << "*.JPG",QDir::Files);
+            QStringList images = directory.entryList(QStringList() << "*.jpg" << "*.JPG" << "*.png" << "*.PNG",QDir::Files);
             for (auto & i : images)
             {
-                const auto & list_model = ui->fillList->model();
                 i = PathAppend(rel_dir, i);
                 list_model->insertRow(list_model->rowCount());
                 QModelIndex index = list_model->index(list_model->rowCount()-1, 0);
@@ -239,17 +195,26 @@ void MainWindow::openRecent(const QString & pathName)
             QStringList folders = directory.entryList(QStringList(), QDir::Dirs);
             for (auto & f : folders)
                 if ( ! f.startsWith("."))
-                    inspect_folder(model, base_dir, PathAppend(rel_dir, f));
+                    inspect_folder(list_model, base_dir, PathAppend(rel_dir, f));
         };
 
-    model = eptg::Load(pathName.toStdString());
+    std::unique_ptr<QStringListModel> result(new QStringListModel());
+    inspect_folder(result.get(), pathName, "");
+    return result;
+}
 
-    const auto & list_model = ui->fillList->model();
-    list_model->removeRows( 0, list_model->rowCount() );
+void MainWindow::open(const QString & pathName)
+{
+    model = eptg::Load(pathName.toStdString());
+    list_model = SweepFolder(pathName);
+    ui->fillList->setModel(list_model.get());
+    connect(ui->fillList->selectionModel()
+           ,SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &))
+           ,this
+           ,SLOT(fillListSelChanged())
+           );
     ui->tagsEdit->clear();
-    inspect_folder(*model, pathName, ".");
-    QPixmap void_image;
-    ui->fillPreview->setPixmap(void_image);
+    ui->fillPreview->setPixmap(QPixmap());
     if (list_model->rowCount() > 0)
         ui->fillList->setCurrentIndex(list_model->index(0, 0));
     this->setWindowTitle("eptgQt - " + pathName);
@@ -268,8 +233,8 @@ void MainWindow::openRecent(const QString & pathName)
         qaction->setData(pathName);
         ui->menuOpenRecent->insertAction(ui->menuOpenRecent->actions()[0], qaction);
         // remove excess recents
-        while (ui->menuOpenRecent->actions().size() > 4)
-            ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[4]);
+        while (ui->menuOpenRecent->actions().size() > 20)
+            ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[20]);
     }
 
     // save recent
@@ -329,35 +294,56 @@ void MainWindow::on_tagsEdit_returnPressed()
             ui->fillList->setCurrentIndex(list_model->index(selected_items[0].row()+1, 0));
 }
 
+std::unique_ptr<QStringListModel> Filter(eptg::Model & model, const std::unique_ptr<QStringListModel> & list_model, const std::set<std::string> & tags)
+{
+    std::unique_ptr<QStringListModel> result(new QStringListModel());
+
+    for (int i=0 ; i<list_model->rowCount() ; i++)
+    {
+        const QString & rel_path = list_model->data(list_model->index(i,0)).toString();
+        const eptg::File & file = model.get_file(rel_path.toStdString());
+        for (const std::string & tag : tags)
+        {
+            if ( ! file.has_tag(tag))
+                break;
+            result->insertRow(result->rowCount());
+            QModelIndex index = result->index(result->rowCount()-1, 0);
+            result->setData(index, rel_path);
+        }
+    }
+
+    return result;
+}
+
 void MainWindow::on_searchEdit_returnPressed()
 {
     if ( ! model)
         return;
-
-    ui->searchList->clear();
 
     std::set<std::string> tags;
     for (const QString & tag : ui->searchEdit->text().split(' '))
         if (tag.size() > 0)
             tags.insert(tag.toStdString());
 
-    QStringList images;
-    for (const auto & f : model->get_files(tags))
-        images.append(QString(f.first.c_str()));
-
-    ui->searchList->addItems(images);
-}
-
-void MainWindow::on_searchList_currentRowChanged(int currentRow)
-{
-    if (currentRow == -1)
-        return;
-    auto rel_path = ui->searchList->item(currentRow)->text();
-    auto currentText = PathAppend(QString(model->path.c_str()), rel_path);
-    QPixmap image(currentText);
-    if (image.width() > 800 || image.height() > 600)
-        image = image.scaled(800,600, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
-    ui->searchPreview->setPixmap(image);
-
-    ui->searchEdit->setFocus();
+    if (tags.size() > 0)
+    {
+        filtered_list_model = Filter(*model, list_model, tags);
+        ui->fillList->setModel(filtered_list_model.get());
+        connect(ui->fillList->selectionModel()
+               ,SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &))
+               ,this
+               ,SLOT(fillListSelChanged())
+               );
+    }
+    else
+    {
+        ui->fillList->setModel(list_model.get());
+        connect(ui->fillList->selectionModel()
+               ,SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &))
+               ,this
+               ,SLOT(fillListSelChanged())
+               );
+    }
+    if (ui->fillList->model()->rowCount() > 0)
+        ui->fillList->setCurrentIndex(ui->fillList->model()->index(0, 0));
 }

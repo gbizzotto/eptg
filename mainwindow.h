@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QStringListModel>
 #include <memory>
 #include "model.hpp"
 
@@ -18,7 +19,7 @@ public:
     ~MainWindow();
 
 private:
-    void openRecent(const QString & pathName);
+    void open(const QString & pathName);
 
 private slots:
     void fillListSelChanged();
@@ -33,10 +34,10 @@ private slots:
 
     void on_searchEdit_returnPressed();
 
-    void on_searchList_currentRowChanged(int currentRow);
-
 private:
     std::unique_ptr<eptg::Model> model;
     Ui::MainWindow *ui;
+    std::unique_ptr<QStringListModel> list_model;
+    std::unique_ptr<QStringListModel> filtered_list_model;
 };
 #endif // MAINWINDOW_H
