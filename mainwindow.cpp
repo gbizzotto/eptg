@@ -202,7 +202,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
                         return true;
                     QString candidate = "";
                     int candidate_grade = 0;
-                    for (auto it = known_tags.lower_bound(stub) ; it->first.startsWith(stub) ; ++it)
+                    for (auto it = known_tags.lower_bound(stub) ; it != known_tags.end() && it->first.startsWith(stub) ; ++it)
                         if (it->second > candidate_grade)
                         {
                             candidate = it->first;
@@ -378,9 +378,13 @@ void MainWindow::on_tagsEdit_returnPressed()
     saveCurrentFileTags();
 
     auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
-    if (selected_items.size() == 1)
-        if (selected_items[0].row()+1 < list_model->rowCount())
-            ui->fillList->setCurrentIndex(list_model->index(selected_items[0].row()+1, 0));
+    // get highest selected index
+    int idx = 0;
+    for (const auto & sel : selected_items)
+        if (sel.row() > idx)
+            idx = sel.row();
+    if (idx+1 < list_model->rowCount())
+        ui->fillList->setCurrentIndex(list_model->index(idx+1, 0));
 
     {
         double percent_tagged = 0;
