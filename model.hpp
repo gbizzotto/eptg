@@ -27,6 +27,7 @@ struct Model
     Model(const std::string & full_path);
     File & get_file(const std::string & rel_path);
     std::map<std::string,File> get_files(const std::set<std::string> & tags);
+    void insert_file(File && f);
 };
 
 std::unique_ptr<Model> Load(const std::string & full_path);

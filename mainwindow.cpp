@@ -1,6 +1,7 @@
 #include <cmath>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "constants.hpp"
 #include <QFileDialog>
 #include <QKeyEvent>
 #include <QSettings>
@@ -51,6 +52,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     statusCountLabel = new QLabel(this);
     ui->statusbar->addWidget(statusCountLabel);
+    statusPercentTaggedLabel = new QLabel(this);
+    ui->statusbar->addWidget(statusPercentTaggedLabel);
+    statusSizeLabel = new QLabel(this);
+    ui->statusbar->addWidget(statusSizeLabel);
 
     ui->tagsEdit->installEventFilter(this);
     ui->searchEdit->installEventFilter(this);
@@ -105,6 +110,7 @@ void MainWindow::fillListSelChanged()
                 image_result = image.scaled(image_result.width(), image_result.height(), Qt::AspectRatioMode::KeepAspectRatio);
             else
                 image_result = image;
+            statusSizeLabel->setText(QString(std::to_string(image.width()).c_str()) + " x " + QString(std::to_string(image.height()).c_str()));
         }
         else
         {
@@ -119,13 +125,14 @@ void MainWindow::fillListSelChanged()
                     auto currentText = PathAppend(QString(model->path.c_str()), rel_path);
                     QPixmap image(currentText);
                     if (image.width() > w || image.height() > h)
-                        image = image.scaled(w-4, h-4, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
+                        image = image.scaled(w-IMG_BORDER, h-IMG_BORDER, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
 
                     QRectF targetRect(w*c + (w-image.width())/2, h*r + (h-image.height())/2, image.width(), image.height());
-                    QRectF sourceRect(0, 0, image.width()-1, image.height()-1);
+                    QRectF sourceRect(0, 0, image.width(), image.height());
                     QPainter painter(&image_result);
                     painter.drawPixmap(targetRect, image, sourceRect);
                 }
+            statusSizeLabel->setText(QString(std::to_string(selected_items.size()).c_str()) + " selected");
         }
         ui->fillPreview->setPixmap(image_result);
     }
@@ -189,13 +196,19 @@ std::unique_ptr<QStringListModel> SweepFolder(const QString & pathName)
     inspect_folder = [&inspect_folder](QStringListModel * list_model, const QString base_dir, const QString rel_dir)
         {
             QDir directory(PathAppend(base_dir, rel_dir));
-            QStringList images = directory.entryList(QStringList() << "*.jpg" << "*.JPG" << "*.png" << "*.PNG",QDir::Files);
-            for (auto & i : images)
+            QStringList files = directory.entryList(QDir::Files);
+            QStringList extensions = {"jpg", "jpeg", "png", "gif"};
+            for (QString & f : files)
             {
-                i = PathAppend(rel_dir, i);
-                list_model->insertRow(list_model->rowCount());
-                QModelIndex index = list_model->index(list_model->rowCount()-1, 0);
-                list_model->setData(index, i);
+                for (const QString & ext : extensions)
+                    if (f.toLower().endsWith(ext))
+                    {
+                        f = PathAppend(rel_dir, f);
+                        list_model->insertRow(list_model->rowCount());
+                        QModelIndex index = list_model->index(list_model->rowCount()-1, 0);
+                        list_model->setData(index, f);
+                        break;
+                    }
             }
 
             QStringList folders = directory.entryList(QStringList(), QDir::Dirs);
@@ -220,6 +233,14 @@ void MainWindow::open(const QString & pathName)
            ,SLOT(fillListSelChanged())
            );
     statusCountLabel->setText(QString(std::to_string(list_model->rowCount()).c_str()) + " files");
+    {
+        double percent_tagged = 0;
+        if (list_model->rowCount() != 0)
+            percent_tagged = 100.0 * model->files.size() / list_model->rowCount();
+        std::string str = std::to_string(percent_tagged);
+        str.resize(4);
+        statusPercentTaggedLabel->setText(QString(str.c_str()) + "% tagged");
+    }
     ui->tagsEdit->clear();
     ui->fillPreview->setPixmap(QPixmap());
     if (list_model->rowCount() > 0)
@@ -240,8 +261,8 @@ void MainWindow::open(const QString & pathName)
         qaction->setData(pathName);
         ui->menuOpenRecent->insertAction(ui->menuOpenRecent->actions()[0], qaction);
         // remove excess recents
-        while (ui->menuOpenRecent->actions().size() > 20)
-            ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[20]);
+        while (ui->menuOpenRecent->actions().size() > MAX_RECENT)
+            ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[MAX_RECENT]);
     }
 
     // save recent
@@ -299,6 +320,15 @@ void MainWindow::on_tagsEdit_returnPressed()
     if (selected_items.size() == 1)
         if (selected_items[0].row()+1 < list_model->rowCount())
             ui->fillList->setCurrentIndex(list_model->index(selected_items[0].row()+1, 0));
+
+    {
+        double percent_tagged = 0;
+        if (list_model->rowCount() != 0)
+            percent_tagged = 100.0 * model->files.size() / list_model->rowCount();
+        std::string str = std::to_string(percent_tagged);
+        str.resize(4);
+        statusPercentTaggedLabel->setText(QString(str.c_str()) + "% tagged");
+    }
 }
 
 std::unique_ptr<QStringListModel> Filter(eptg::Model & model, const std::unique_ptr<QStringListModel> & list_model, const std::set<std::string> & tags)

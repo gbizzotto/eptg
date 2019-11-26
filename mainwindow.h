@@ -39,6 +39,8 @@ private:
     std::unique_ptr<eptg::Model> model;
     Ui::MainWindow *ui;
     QLabel *statusCountLabel;
+    QLabel *statusPercentTaggedLabel;
+    QLabel *statusSizeLabel;
     std::unique_ptr<QStringListModel> list_model;
     std::unique_ptr<QStringListModel> filtered_list_model;
 };

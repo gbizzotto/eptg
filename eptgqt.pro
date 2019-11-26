@@ -21,6 +21,7 @@ SOURCES += \
     model.cpp
 
 HEADERS += \
+    constants.hpp \
     mainwindow.h \
     model.hpp
 

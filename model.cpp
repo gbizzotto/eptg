@@ -74,13 +74,21 @@ std::unique_ptr<Model> Load(const std::string & full_path)
     const QJsonObject files = json["files"].toObject();
     for (const auto & filename : files.keys())
     {
-        File & file = model->get_file(filename.toStdString());
+        File file(filename.toStdString());
+        //File & file = model->get_file(filename.toStdString());
         const auto & f = files[filename];
         for (const auto tagname : f.toObject()["tags"].toArray())
             if (tagname.toString().size() > 0)
                 file.insert_tag(tagname.toString().toStdString());
+        if (file.tags.size() > 0)
+            model->insert_file(std::move(file));
     }
     return model;
+}
+
+void Model::insert_file(File && f)
+{
+    files.insert(std::make_pair(f.rel_path, f));
 }
 
 void Save(const std::unique_ptr<Model> & model)
