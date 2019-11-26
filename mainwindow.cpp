@@ -156,22 +156,61 @@ void MainWindow::on_menuOpenRecent(QAction *action)
 
 bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 {
-    if (event->type() == QEvent::KeyPress)
+    if (obj == ui->tagsEdit || obj == ui->searchEdit)
     {
-        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        QLineEdit *edit = ((QLineEdit*)obj);
+        if (event->type() == QEvent::KeyPress)
         {
-            if (obj == ui->tagsEdit || obj == ui->searchEdit)
+            QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+            if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down)
             {
-                if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down)
+                if (edit == ui->tagsEdit)
+                    saveCurrentFileTags();
+                QCoreApplication::postEvent(ui->fillList, new QKeyEvent(*keyEvent));
+                return true;
+            }
+            else if (keyEvent->key() == Qt::Key_Escape)
+            {
+                ui->searchEdit->setText("");
+                on_searchEdit_returnPressed();
+                ui->searchEdit->setFocus();
+                return true;
+            }
+            else if (keyEvent->key() == Qt::Key_Tab)
+            {
+                if (edit->selectedText().size() > 0)
                 {
-                    QCoreApplication::postEvent(ui->fillList, new QKeyEvent(*keyEvent));
+                    edit->deselect();
+                    edit->setCursorPosition(edit->text().size());
                     return true;
                 }
-                else if (keyEvent->key() == Qt::Key_Escape)
+            }
+        }
+        else if (event->type() == QEvent::KeyRelease)
+        {
+            QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+            if (edit->cursorPosition() == edit->text().size())
+            {
+                if (keyEvent->key() != Qt::Key_Space && keyEvent->key() != Qt::Key_Backspace && keyEvent->key() != Qt::Key_Delete)
                 {
-                    ui->searchEdit->setText("");
-                    on_searchEdit_returnPressed();
-                    ui->searchEdit->setFocus();
+                    QString text = edit->text().mid(0, edit->selectionStart());
+                    QStringList words = text.split(' ');
+                    if (words.size() == 0)
+                        return true;
+                    QString stub = words.last();
+                    if (stub.size() == 0)
+                        return true;
+                    QString candidate = "";
+                    int candidate_grade = 0;
+                    for (auto it = known_tags.lower_bound(stub) ; it->first.startsWith(stub) ; ++it)
+                        if (it->second > candidate_grade)
+                        {
+                            candidate = it->first;
+                            candidate_grade = it->second;
+                        }
+                    QString autocompletion = candidate.mid(stub.size());
+                    edit->setText(text + autocompletion);
+                    edit->setSelection(text.size(), autocompletion.size());
                     return true;
                 }
             }
@@ -274,6 +313,17 @@ void MainWindow::open(const QString & pathName)
         settings.setValue("recent", ui->menuOpenRecent->actions()[i]->text());
     }
     settings.endArray();
+
+    // known tags for autocompletion
+    known_tags.clear();
+    for (const auto & [key, val] : model->files)
+        for (const std::string & t : val.tags)
+        {
+            QString tag(t.c_str());
+            if (known_tags.find(tag) == known_tags.end())
+                known_tags[tag] = 0;
+            known_tags[tag]++;
+        }
 }
 
 template<typename T>
@@ -286,7 +336,7 @@ std::set<T> Added(const std::set<T> & before, const std::set<T> & after)
     return result;
 }
 
-void MainWindow::on_tagsEdit_returnPressed()
+void MainWindow::saveCurrentFileTags()
 {
     if ( ! model)
         return;
@@ -299,7 +349,12 @@ void MainWindow::on_tagsEdit_returnPressed()
     std::set<QString> typed_tags;
     for (const QString & tag : ui->tagsEdit->text().split(' '))
         if (tag.size() > 0)
+        {
             typed_tags.insert(tag);
+            if (known_tags.find(tag) == known_tags.end())
+                known_tags[tag] = 0;
+            known_tags[tag]++;
+        }
     std::set<QString> added_tags   = Added(common_tags, typed_tags);
     std::set<QString> removed_tags = Added(typed_tags, common_tags);
 
@@ -316,7 +371,13 @@ void MainWindow::on_tagsEdit_returnPressed()
     }
 
     eptg::Save(model);
+}
 
+void MainWindow::on_tagsEdit_returnPressed()
+{
+    saveCurrentFileTags();
+
+    auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
     if (selected_items.size() == 1)
         if (selected_items[0].row()+1 < list_model->rowCount())
             ui->fillList->setCurrentIndex(list_model->index(selected_items[0].row()+1, 0));

@@ -24,6 +24,7 @@ private:
 
 private slots:
     void fillListSelChanged();
+    void saveCurrentFileTags();
 
     void on_menuOpenRecent(QAction *action);
 
@@ -43,5 +44,6 @@ private:
     QLabel *statusSizeLabel;
     std::unique_ptr<QStringListModel> list_model;
     std::unique_ptr<QStringListModel> filtered_list_model;
+    std::map<QString,int> known_tags;
 };
 #endif // MAINWINDOW_H
