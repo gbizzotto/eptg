@@ -25,9 +25,11 @@ struct Model
     std::map<std::string,File> files;
 
     Model(const std::string & full_path);
-    File & get_file(const std::string & rel_path);
+    File * add_file(const std::string & rel_path);
+    File * get_file(const std::string & rel_path);
     std::map<std::string,File> get_files(const std::set<std::string> & tags);
     void insert_file(File && f);
+    bool has_file(const std::string & rel_path) const;
 };
 
 std::unique_ptr<Model> Load(const std::string & full_path);

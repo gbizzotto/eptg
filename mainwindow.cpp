@@ -25,21 +25,24 @@ std::set<QString> GetCommonTags(eptg::Model & model, QModelIndexList & selected_
     // get tags for 1st file as baseline
     {
         auto rel_path = selected_items[0].data().toString();
-        for (const auto & t : model.get_file(rel_path.toStdString()).tags)
-            tags.insert(QString(t.c_str()));
+        const eptg::File *file = model.get_file(rel_path.toStdString());
+        if (file != nullptr)
+            for (const auto & t : file->tags)
+                tags.insert(QString(t.c_str()));
     }
     // filter out tags that are not in the rest of the files
     for (int i=1 ; i<selected_items.size() ; i++)
     {
         const auto & rel_path = selected_items[i].data().toString();
-        const eptg::File & file = model.get_file(rel_path.toStdString());
-        for (auto it=tags.begin(),end=tags.end() ; it!=end ; )
-        {
-            if (file.tags.find(it->toStdString()) == file.tags.end())
-                tags.erase(it++);
-            else
-                it++;
-        }
+        const eptg::File * file = model.get_file(rel_path.toStdString());
+        if (file != nullptr)
+            for (auto it=tags.begin(),end=tags.end() ; it!=end ; )
+            {
+                if (file->tags.find(it->toStdString()) == file->tags.end())
+                    tags.erase(it++);
+                else
+                    it++;
+            }
     }
     return tags;
 }
@@ -181,6 +184,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
                 if (edit->selectedText().size() > 0)
                 {
                     edit->deselect();
+                    edit->setText(edit->text() + " ");
                     edit->setCursorPosition(edit->text().size());
                     return true;
                 }
@@ -316,7 +320,7 @@ void MainWindow::open(const QString & pathName)
 
     // known tags for autocompletion
     known_tags.clear();
-    for (const auto & [key, val] : model->files)
+    for (const auto & [key,val] : model->files)
         for (const std::string & t : val.tags)
         {
             QString tag(t.c_str());
@@ -363,11 +367,16 @@ void MainWindow::saveCurrentFileTags()
     {
         int idx = selected_items[i].row();
         auto rel_path = list_model->data(list_model->index(idx, 0)).toString();
-        eptg::File & f = model->get_file(rel_path.toStdString());
-        for (const QString & t : removed_tags)
-            f.erase_tag(t.toStdString());
-        for (const QString & t : added_tags)
-            f.insert_tag(t.toStdString());
+        eptg::File * f = model->get_file(rel_path.toStdString());
+        if (f != nullptr)
+            for (const QString & t : removed_tags)
+                f->erase_tag(t.toStdString());
+        if (added_tags.size() > 0)
+        {
+            f = model.add_file(rel_path.toStdString());
+            for (const QString & t : added_tags)
+                f->insert_tag(t.toStdString());
+        }
     }
 
     eptg::Save(model);
@@ -383,8 +392,8 @@ void MainWindow::on_tagsEdit_returnPressed()
     for (const auto & sel : selected_items)
         if (sel.row() > idx)
             idx = sel.row();
-    if (idx+1 < list_model->rowCount())
-        ui->fillList->setCurrentIndex(list_model->index(idx+1, 0));
+    if (idx+1 < ui->fillList->model()->rowCount())
+        ui->fillList->setCurrentIndex(ui->fillList->model()->index(idx+1, 0));
 
     {
         double percent_tagged = 0;
@@ -403,10 +412,12 @@ std::unique_ptr<QStringListModel> Filter(eptg::Model & model, const std::unique_
     for (int i=0 ; i<list_model->rowCount() ; i++)
     {
         const QString & rel_path = list_model->data(list_model->index(i,0)).toString();
-        const eptg::File & file = model.get_file(rel_path.toStdString());
+        const eptg::File * file = model.get_file(rel_path.toStdString());
+        if (file == nullptr)
+            continue;
         for (const std::string & tag : tags)
         {
-            if ( ! file.has_tag(tag))
+            if ( ! file->has_tag(tag))
                 break;
             result->insertRow(result->rowCount());
             QModelIndex index = result->index(result->rowCount()-1, 0);

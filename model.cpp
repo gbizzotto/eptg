@@ -18,15 +18,22 @@ QString PathAppend(const QString & path1, const QString & path2)
 File::File(const std::string & rel_path)
     : rel_path(rel_path)
 {}
-
-File & Model::get_file(const std::string & rel_path)
+File * Model::add_file(const std::string & rel_path)
 {
-    auto it = files.lower_bound(rel_path);
-    if (it == files.end() || it->second.rel_path != rel_path)
-        it = files.insert(it, std::make_pair(rel_path, File(rel_path)));
-    return it->second;
+    auto p = files.insert(std::make_pair(rel_path,File(rel_path)));
+    return &p.first->second;
 }
-
+File * Model::get_file(const std::string & rel_path)
+{
+    auto it = files.find(rel_path);
+    if (it == files.end())
+        return nullptr;
+    return &it->second;
+}
+bool Model::has_file(const std::string & rel_path) const
+{
+    return files.find(rel_path) != files.end();
+}
 void File::insert_tag(const std::string & tag)
 {
     tags.insert(tag);
@@ -75,7 +82,6 @@ std::unique_ptr<Model> Load(const std::string & full_path)
     for (const auto & filename : files.keys())
     {
         File file(filename.toStdString());
-        //File & file = model->get_file(filename.toStdString());
         const auto & f = files[filename];
         for (const auto tagname : f.toObject()["tags"].toArray())
             if (tagname.toString().size() > 0)
