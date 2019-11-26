@@ -18,10 +18,10 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-
+protected:
+    void showEvent(QShowEvent *ev);
 private:
     void open(const QString & pathName);
-
 private slots:
     void fillListSelChanged();
     void saveCurrentFileTags();

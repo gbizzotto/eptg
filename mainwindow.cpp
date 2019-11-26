@@ -66,11 +66,10 @@ MainWindow::MainWindow(QWidget *parent)
     ui->fillList->setModel(list_model.get());
     statusCountLabel->setText(QString(std::to_string(list_model->rowCount()).c_str()) + " files");
 
-
     // load settings
     QSettings settings("ttt", "eptg");
-    int size = settings.beginReadArray("recents");
-    for(int i=0 ; i<size ; i++)
+    int recent_count = settings.beginReadArray("recents");
+    for(int i=0 ; i<recent_count ; i++)
     {
         settings.setArrayIndex(i);
         QString path = settings.value("recent").toString();
@@ -90,7 +89,11 @@ MainWindow::~MainWindow()
 {
     delete ui;
 }
-
+void MainWindow::showEvent(QShowEvent *ev)
+{
+    if (ui->menuOpenRecent->actions().size() > 0)
+        this->open(ui->menuOpenRecent->actions()[0]->text());
+}
 void MainWindow::fillListSelChanged()
 {
     QModelIndexList selected_items = ui->fillList->selectionModel()->selectedIndexes();
@@ -290,6 +293,16 @@ void MainWindow::open(const QString & pathName)
         ui->fillList->setCurrentIndex(list_model->index(0, 0));
     this->setWindowTitle("eptgQt - " + pathName);
 
+    // find first untagged file
+    ui->searchEdit->setFocus();
+    for (int i=0 ; i<list_model->rowCount() ; i++)
+        if ( ! model->has_file(list_model->data(list_model->index(i,0)).toString().toStdString()))
+        {
+            ui->fillList->setCurrentIndex(list_model->index(i,0));
+            ui->tagsEdit->setFocus();
+            break;
+        }
+
     // set recent menu
     if (ui->menuOpenRecent->actions().size() == 0)
         ui->menuOpenRecent->addAction(pathName);
@@ -373,7 +386,7 @@ void MainWindow::saveCurrentFileTags()
                 f->erase_tag(t.toStdString());
         if (added_tags.size() > 0)
         {
-            f = model.add_file(rel_path.toStdString());
+            f = model->add_file(rel_path.toStdString());
             for (const QString & t : added_tags)
                 f->insert_tag(t.toStdString());
         }
