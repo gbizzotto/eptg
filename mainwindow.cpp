@@ -272,6 +272,7 @@ void MainWindow::open(const QString & pathName)
 {
     model = eptg::Load(pathName.toStdString());
     list_model = SweepFolder(pathName);
+
     ui->fillList->setModel(list_model.get());
     connect(ui->fillList->selectionModel()
            ,SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &))
@@ -341,6 +342,23 @@ void MainWindow::open(const QString & pathName)
                 known_tags[tag] = 0;
             known_tags[tag]++;
         }
+
+    // Tag list
+    ui->tagList->setStyleSheet("QTableWidget::item { padding: 100px }");
+    ui->tagList->verticalHeader()->setDefaultSectionSize( 0 );
+    ui->tagList->setColumnCount(2);
+    ui->tagList->setRowCount(known_tags.size());
+    QStringList cols;
+    cols << "Name" << "Use count";
+    ui->tagList->setHorizontalHeaderLabels(cols);
+    int i=0;
+    for (const auto & [tag,count] : known_tags)
+    {
+        ui->tagList->setItem(i, 0, new QTableWidgetItem(tag));
+        ui->tagList->setItem(i, 1, new QTableWidgetItem(QString("%1").arg(count)));
+        i++;
+    }
+    ui->tagList->sortItems(1, Qt::SortOrder::DescendingOrder);
 }
 
 template<typename T>
