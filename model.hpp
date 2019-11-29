@@ -49,6 +49,8 @@ struct Model
     std::map<std::string,Tag> get_tags(const std::set<std::string> & tags);
     void insert_tag(Tag && f);
     bool has_tag(const std::string & rel_path) const;
+    std::vector<std::string> get_parent_tags(const std::vector<std::string> & tags) const;
+    std::vector<std::string> get_descendent_tags(const std::vector<std::string> & tags) const;
 };
 
 std::unique_ptr<Model> Load(const std::string & full_path);

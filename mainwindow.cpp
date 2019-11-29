@@ -632,7 +632,63 @@ void MainWindow::on_tagList_itemSelectionChanged()
     }
 
     // prepare preview
-    // TODO
+    if (model && selected_items.size() > 0)
+    {
+        std::string selected_item;
+
+        // get first selected item
+        for (int i=0 ; i<selected_items.size() ; i++)
+            if (selected_items[0]->column() == 0)
+            {
+                selected_item = selected_items[i]->data(0).toString().toStdString();
+                break;
+            }
+
+        if (selected_item.size() > 0)
+        {
+            std::vector<std::vector<std::string>> hierarchy = {{ selected_item }};
+            QString hierarchy_to_display;
+
+            // get parents
+            while (hierarchy.back().size() > 0)
+                hierarchy.push_back(model->get_parent_tags(hierarchy.back()));
+            hierarchy.pop_back(); // remove empty list
+            hierarchy.erase(hierarchy.begin()); // remove the current tag
+            // format parents
+            while(hierarchy.size() > 0)
+            {
+                while(hierarchy.back().size() > 1)
+                {
+                    hierarchy_to_display << hierarchy.back().front() << ", ";
+                    hierarchy.back().erase(hierarchy.back().begin());
+                }
+                hierarchy_to_display << hierarchy.back().front() << "<br/>↑<br/>";
+                hierarchy.pop_back();
+            }
+            // format current tag
+            hierarchy_to_display << "<b>" << selected_item << "</b>";
+            // get descendents
+            hierarchy = {{ selected_item }};
+            while (hierarchy.back().size() > 0)
+                hierarchy.push_back(model->get_descendent_tags(hierarchy.back()));
+            hierarchy.pop_back(); // remove empty list
+            hierarchy.erase(hierarchy.begin()); // remove the current tag
+            // format descendents
+            while(hierarchy.size() > 0)
+            {
+                hierarchy_to_display << "<br/>↑<br/>";
+                while(hierarchy.front().size() > 1)
+                {
+                    hierarchy_to_display << hierarchy.front().front() << ", ";
+                    hierarchy.front().erase(hierarchy.front().begin());
+                }
+                hierarchy_to_display << hierarchy.front().front();
+                hierarchy.erase(hierarchy.begin());
+            }
+
+            ui->tagTreePreview->setText(hierarchy_to_display);
+        }
+    }
 
     // prepare tag line
     std::set<QString> tags = GetCommonTagTags(*model, selected_items);

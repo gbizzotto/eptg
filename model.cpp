@@ -117,6 +117,36 @@ void Model::insert_tag(Tag && t)
 {
     tags.insert(std::make_pair(t.name, t));
 }
+std::vector<std::string> Model::get_parent_tags(const std::vector<std::string> & p_tags) const
+{
+    std::vector<std::string> result;
+    std::set<std::string> tmp_result;
+    for (const std::string & t : p_tags)
+    {
+        if ( ! has_tag(t))
+            continue;
+        const Tag *tag = get_tag(t);
+        for (const std::string & parent_tag_str : tag->tags)
+            tmp_result.insert(parent_tag_str);
+    }
+    for (const std::string & result_tag_str : tmp_result)
+        result.push_back(result_tag_str);
+    return result;
+}
+
+std::vector<std::string> Model::get_descendent_tags(const std::vector<std::string> & p_tags) const
+{
+    std::vector<std::string> result;
+    std::set<std::string> tmp_result;
+    for (const auto & [name,tag] : this->tags)
+        for (const std::string & t : p_tags)
+            if (tag.has_tag(t))
+                tmp_result.insert(name);
+
+    for (const std::string & result_tag_str : tmp_result)
+        result.push_back(result_tag_str);
+    return result;
+}
 
 std::unique_ptr<Model> Load(const std::string & full_path)
 {
