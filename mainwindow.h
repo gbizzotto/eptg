@@ -25,6 +25,7 @@ private:
 private slots:
     void fillListSelChanged();
     void saveCurrentFileTags();
+    void saveCurrentTagTags();
 
     void on_menuOpenRecent(QAction *action);
 
@@ -35,6 +36,10 @@ private slots:
     bool eventFilter(QObject* obj, QEvent *event);
 
     void on_searchEdit_returnPressed();
+
+    void on_editTagTags_returnPressed();
+
+    void on_tagList_itemSelectionChanged();
 
 private:
     std::unique_ptr<eptg::Model> model;
