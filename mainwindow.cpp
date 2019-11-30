@@ -12,6 +12,23 @@
 #include <QModelIndexList>
 #include <QKeyEvent>
 
+std::set<std::string> GetSelectedRowsTitles(const QList<QTableWidgetItem*> & selected_items)
+{
+    std::set<std::string> result;
+    for (int i=0 ; i<selected_items.size() ; i++)
+        if (selected_items[i]->column() == 0)
+            result.insert(selected_items[i]->data(0).toString().toStdString());
+    return result;
+}
+
+std::set<QString> QStringSetFromStdStrSet(std::set<std::string> && ss)
+{
+    std::set<QString> result;
+    for (const std::string & str : ss)
+        result.insert(QString(str.c_str()));
+    return result;
+}
+
 template<typename T>
 QString & operator<<(QString & out, const T & t)
 {
@@ -28,63 +45,6 @@ QString PathAppend(const QString & path1, const QString & path2)
     if (path1.size() == 0)
         return path2;
     return QDir::cleanPath(path1 + QDir::separator() + path2);
-}
-
-std::set<QString> GetCommonFileTags(eptg::Model & model, QModelIndexList & selected_items)
-{
-    std::set<QString> tags;
-    // get tags for 1st file as baseline
-    {
-        auto rel_path = selected_items[0].data().toString();
-        const eptg::File *file = model.get_file(rel_path.toStdString());
-        if (file != nullptr)
-            for (const auto & t : file->tags)
-                tags.insert(QString(t.c_str()));
-    }
-    // filter out tags that are not in the rest of the files
-    for (int i=1 ; i<selected_items.size() ; i++)
-    {
-        const auto & rel_path = selected_items[i].data().toString();
-        const eptg::File * file = model.get_file(rel_path.toStdString());
-        if (file != nullptr)
-            for (auto it=tags.begin(),end=tags.end() ; it!=end ; )
-            {
-                if (file->tags.find(it->toStdString()) == file->tags.end())
-                    tags.erase(it++);
-                else
-                    it++;
-            }
-    }
-    return tags;
-}
-std::set<QString> GetCommonTagTags(eptg::Model & model, QList<QTableWidgetItem*> & selected_items)
-{
-    std::set<QString> tags;
-    // get tags for 1st file as baseline
-    {
-        auto name = selected_items[0]->data(0).toString();
-        const eptg::Tag *tag = model.get_tag(name.toStdString());
-        if (tag != nullptr)
-            for (const auto & t : tag->tags)
-                tags.insert(QString(t.c_str()));
-    }
-    // filter out tags that are not in the rest of the files
-    for (int i=1 ; i<selected_items.size() ; i++)
-    {
-        if (selected_items[i]->column() != 0)
-            continue;
-        const auto & name = selected_items[i]->data(0).toString();
-        const eptg::Tag * tag = model.get_tag(name.toStdString());
-        if (tag != nullptr)
-            for (auto it=tags.begin(),end=tags.end() ; it!=end ; )
-            {
-                if (tag->tags.find(it->toStdString()) == tag->tags.end())
-                    tags.erase(it++);
-                else
-                    it++;
-            }
-    }
-    return tags;
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -138,11 +98,6 @@ void MainWindow::showEvent(QShowEvent *ev)
 void MainWindow::fillListSelChanged()
 {
     QModelIndexList selected_items = ui->fillList->selectionModel()->selectedIndexes();
-    if (selected_items.size() == 0)
-    {
-        ui->tagsEdit->setText("");
-        return;
-    }
 
     // prepare preview
     {
@@ -159,7 +114,7 @@ void MainWindow::fillListSelChanged()
                 image_result = image;
             statusSizeLabel->setText(QString(std::to_string(image.width()).c_str()) + " x " + QString(std::to_string(image.height()).c_str()));
         }
-        else
+        else if (selected_items.size() > 0)
         {
             int cols = (int) std::ceil(std::sqrt(selected_items.size()));
             int rows = (int) std::ceil(selected_items.size() * 1.0 / cols);
@@ -185,9 +140,12 @@ void MainWindow::fillListSelChanged()
     }
 
     // prepare tag line
-    std::set<QString> tags = GetCommonFileTags(*model, selected_items);
+    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
+    std::set<eptg::taggable*> selected_tags = model->files.get_all_by_name(titles);
+    std::set<QString> common_tags = QStringSetFromStdStrSet(model->get_common_tags(selected_files));
+
     QString tag_line;
-    for (const auto & t : tags)
+    for (const auto & t : common_tags)
         tag_line.append(t).append(" ");
 
     // set tag line into edit
@@ -344,7 +302,7 @@ void MainWindow::open(const QString & pathName)
     // find first untagged file
     ui->searchEdit->setFocus();
     for (int i=0 ; i<list_model->rowCount() ; i++)
-        if ( ! model->has_file(list_model->data(list_model->index(i,0)).toString().toStdString()))
+        if ( ! model->files.has(list_model->data(list_model->index(i,0)).toString().toStdString()))
         {
             ui->fillList->setCurrentIndex(list_model->index(i,0));
             ui->tagsEdit->setFocus();
@@ -381,7 +339,7 @@ void MainWindow::open(const QString & pathName)
 
     // known tags for autocompletion
     known_tags.clear();
-    for (const auto & [key,val] : model->files)
+    for (const auto & [key,val] : model->files.collection)
         for (const std::string & t : val.tags)
         {
             QString tag(t.c_str());
@@ -389,7 +347,7 @@ void MainWindow::open(const QString & pathName)
                 known_tags[tag] = 0;
             known_tags[tag]++;
         }
-    for (const auto & [key,val] : model->tags)
+    for (const auto & [key,val] : model->tags.collection)
     {
         if (known_tags.find(QString(key.c_str())) == known_tags.end())
             known_tags[QString(key.c_str())] = 0;
@@ -438,7 +396,10 @@ void MainWindow::saveCurrentFileTags()
     if (selected_items.size() == 0)
         return;
 
-    std::set<QString> common_tags = GetCommonFileTags(*model, selected_items);
+    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
+    std::set<eptg::taggable*> selected_tags = model->files.get_all_by_name(titles);
+    std::set<QString> common_tags = QStringSetFromStdStrSet(model->get_common_tags(selected_files));
+
     std::set<QString> typed_tags;
     for (const QString & tag : ui->tagsEdit->text().split(' '))
         if (tag.size() > 0)
@@ -456,13 +417,13 @@ void MainWindow::saveCurrentFileTags()
     {
         int idx = selected_items[i].row();
         auto rel_path = list_model->data(list_model->index(idx, 0)).toString();
-        eptg::File * f = model->get_file(rel_path.toStdString());
+        eptg::File * f = model->files.get(rel_path.toStdString());
         if (f != nullptr)
             for (const QString & t : removed_tags)
                 f->erase_tag(t.toStdString());
         if (added_tags.size() > 0)
         {
-            f = model->add_file(rel_path.toStdString());
+            f = model->files.add(rel_path.toStdString());
             for (const QString & t : added_tags)
                 f->insert_tag(t.toStdString());
         }
@@ -502,7 +463,7 @@ std::unique_ptr<QStringListModel> Filter(eptg::Model & model, const std::unique_
     for (int i=0 ; i<list_model->rowCount() ; i++)
     {
         const QString & rel_path = list_model->data(list_model->index(i,0)).toString();
-        const eptg::File * file = model.get_file(rel_path.toStdString());
+        const eptg::File * file = model.files.get(rel_path.toStdString());
         if (file == nullptr)
             continue;
         for (const std::string & tag : tags)
@@ -559,6 +520,7 @@ void MainWindow::on_searchEdit_returnPressed()
     ui->searchEdit->setCursorPosition(ui->searchEdit->text().size());
 }
 
+
 void MainWindow::saveCurrentTagTags()
 {
     if ( ! model)
@@ -567,7 +529,11 @@ void MainWindow::saveCurrentTagTags()
     auto selected_items = ui->tagList->selectedItems();
     if (selected_items.size() == 0)
         return;
-    std::set<QString> common_tags = GetCommonTagTags(*model, selected_items);
+
+    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
+    std::set<eptg::taggable*> selected_tags = model->tags.get_all_by_name(titles);
+    std::set<QString> common_tags = QStringSetFromStdStrSet(model->get_common_tags(selected_files));
+
     std::set<QString> typed_tags;
     for (const QString & tag : ui->editTagTags->text().split(' '))
         if (tag.size() > 0)
@@ -580,23 +546,23 @@ void MainWindow::saveCurrentTagTags()
         if (selected_items[i]->column() != 0)
             continue;
         const auto & name = selected_items[i]->data(0).toString();
-        eptg::Tag * t = model->get_tag(name.toStdString());
+        eptg::Tag * t = model->tags.get(name.toStdString());
         if (t != nullptr)
             for (const QString & st : removed_tags)
                 t->erase_tag(st.toStdString());
         if (added_tags.size() > 0)
         {
-            t = model->add_tag(name.toStdString());
+            t = model->tags.add(name.toStdString());
             for (const QString & st : added_tags)
             {
                 // let's check that the tag added does not already inherit (is tagged with) the selected tag
                 // if so, it would create circular inheritance, which does not make sense
                 // e.g.: if TZM is a ACTIVISM. Can't make ACTIVISM a TZM.
-                eptg::Tag * candidate = model->get_tag(st.toStdString());
-                if (candidate != nullptr && eptg::TaggableHasTag(*model, *candidate, t->name))
+                eptg::Tag * candidate = model->tags.get(st.toStdString());
+                if (candidate != nullptr && eptg::TaggableHasTag(*model, *candidate, t->id()))
                 {
                     QString msg;
-                    msg << "Can't add tag '" << st << "' to tag " << t->name << "' because '" << t->name
+                    msg << "Can't add tag '" << st << "' to tag " << t->id() << "' because '" << t->id()
                         << "' or one of its parent tags has already been tagged '" << st << "'.";
                     ui->statusbar->showMessage(msg, 10000);
                 }
@@ -691,9 +657,11 @@ void MainWindow::on_tagList_itemSelectionChanged()
     }
 
     // prepare tag line
-    std::set<QString> tags = GetCommonTagTags(*model, selected_items);
+    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
+    std::set<eptg::taggable*> selected_tags = model->tags.get_all_by_name(titles);
+    std::set<QString> common_tags = QStringSetFromStdStrSet(model->get_common_tags(selected_tags));
     QString tag_line;
-    for (const auto & t : tags)
+    for (const auto & t : common_tags)
         tag_line.append(t).append(" ");
 
     // set tag line into edit

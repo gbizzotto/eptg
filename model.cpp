@@ -1,4 +1,5 @@
 #include "model.hpp"
+#include <algorithm>
 #include <QString>
 #include <QByteArray>
 #include <QFile>
@@ -28,104 +29,16 @@ bool taggable::has_tag(const std::string & tag) const
     return tags.find(tag) != tags.end();
 }
 
-File::File(const std::string & rel_path)
-    : rel_path(rel_path)
-{}
-Tag::Tag(const std::string & n)
-    : name(n)
-{}
 
-Model::Model(const std::string & full_path)
-    : path(full_path)
-{}
-
-File * Model::add_file(const std::string & rel_path)
-{
-    auto p = files.insert(std::make_pair(rel_path,File{rel_path}));
-    return &p.first->second;
-}
-const File * Model::get_file(const std::string & rel_path) const
-{
-    auto it = files.find(rel_path);
-    if (it == files.end())
-        return nullptr;
-    return &it->second;
-}
-File * Model::get_file(const std::string & rel_path)
-{
-    return const_cast<File*>(const_cast<const Model*>(this)->get_file(rel_path));
-}
-bool Model::has_file(const std::string & rel_path) const
-{
-    return files.find(rel_path) != files.end();
-}
-std::map<std::string,File> Model::get_files(const std::set<std::string> & tags)
-{
-    std::map<std::string,File> result;
-
-    for (const auto & f : files)
-        for (const auto & t : tags)
-        {
-            if (f.second.tags.find(t) == f.second.tags.end())
-                break;
-            result.insert(f);
-        }
-
-    return result;
-}
-void Model::insert_file(File && f)
-{
-    files.insert(std::make_pair(f.rel_path, f));
-}
-
-Tag * Model::add_tag(const std::string & name)
-{
-    auto p = tags.insert(std::make_pair(name,Tag{name}));
-    return &p.first->second;
-}
-const Tag * Model::get_tag(const std::string & name) const
-{
-    auto it = tags.find(name);
-    if (it == tags.end())
-        return nullptr;
-    return &it->second;
-}
-Tag * Model::get_tag(const std::string & name)
-{
-    return const_cast<Tag*>(const_cast<const Model*>(this)->get_tag(name));
-}
-bool Model::has_tag(const std::string & name) const
-{
-    return tags.find(name) != tags.end();
-}
-
-std::map<std::string,Tag> Model::get_tags(const std::set<std::string> & subtags)
-{
-    std::map<std::string,Tag> result;
-
-    for (const auto & t : tags)
-        for (const auto & st : subtags)
-        {
-            if (t.second.tags.find(st) == t.second.tags.end())
-                break;
-            result.insert(t);
-        }
-
-    return result;
-}
-void Model::insert_tag(Tag && t)
-{
-    tags.insert(std::make_pair(t.name, t));
-}
 std::vector<std::string> Model::get_parent_tags(const std::vector<std::string> & p_tags) const
 {
     std::vector<std::string> result;
     std::set<std::string> tmp_result;
     for (const std::string & t : p_tags)
     {
-        if ( ! has_tag(t))
+        if ( ! tags.has(t))
             continue;
-        const Tag *tag = get_tag(t);
+        const Tag *tag = tags.get(t);
         for (const std::string & parent_tag_str : tag->tags)
             tmp_result.insert(parent_tag_str);
     }
@@ -138,13 +51,44 @@ std::vector<std::string> Model::get_descendent_tags(const std::vector<std::strin
 {
     std::vector<std::string> result;
     std::set<std::string> tmp_result;
-    for (const auto & [name,tag] : this->tags)
+    for (const auto & [name,tag] : this->tags.collection)
         for (const std::string & t : p_tags)
             if (tag.has_tag(t))
                 tmp_result.insert(name);
 
     for (const std::string & result_tag_str : tmp_result)
         result.push_back(result_tag_str);
+    return result;
+}
+
+std::set<std::string> Model::get_common_tags(std::set<taggable*> & taggables) const
+{
+    std::set<std::string> result;
+    if (taggables.size() == 0)
+        return result;
+
+    // get tags for 1st taggable as baseline
+    auto it = taggables.begin();
+    auto end = taggables.end();
+    for ( ; it != end ; ++it)
+    {
+        if (*it == nullptr)
+            continue;
+        result = (*it)->tags;
+        break;
+    }
+    for ( ++it
+        ; it != end && result.size() > 0
+        ; ++it)
+    {
+        if (*it == nullptr)
+            continue;
+        decltype(result) tmp;
+        std::set_intersection(result.begin(), result.end(),
+                              (*it)->tags.begin(), (*it)->tags.end(),
+                              std::inserter(tmp, tmp.end()));
+        result = tmp;
+    }
     return result;
 }
 
@@ -169,7 +113,7 @@ std::unique_ptr<Model> Load(const std::string & full_path)
             if (tagname.toString().size() > 0)
                 file.insert_tag(tagname.toString().toStdString());
         if (file.tags.size() > 0)
-            model->insert_file(std::move(file));
+            model->files.insert(std::move(file));
     }
     const QJsonObject tags = json["tags"].toObject();
     for (const auto & tag_name : tags.keys())
@@ -179,50 +123,50 @@ std::unique_ptr<Model> Load(const std::string & full_path)
         for (const auto subtagname : t.toObject()["tags"].toArray())
             if (subtagname.toString().size() > 0)
                 tag.insert_tag(subtagname.toString().toStdString());
-        model->insert_tag(std::move(tag));
+        model->tags.insert(std::move(tag));
     }
     return model;
 }
 
 void Save(const std::unique_ptr<Model> & model)
 {
-    QJsonObject document;
+    QJsonObject json_document;
     {
-        QJsonObject files;
-        for (const auto & file_model : model->files)
+        QJsonObject files_json;
+        for (const auto & [id,file] : model->files.collection)
         {
-            if (file_model.second.tags.size() == 0)
+            if (file.tags.size() == 0)
                 continue;
             QJsonArray tags;
             int i=0;
-            for (const auto & tag : file_model.second.tags)
+            for (const auto & tag : file.tags)
                 tags.insert(i++, QJsonValue(QString(tag.c_str())));
             QJsonObject file_json;
             file_json.insert("tags", tags);
-            files.insert(QString(file_model.second.rel_path.c_str()), file_json);
+            files_json.insert(QString(id.c_str()), file_json);
         }
-        document.insert("files", files);
+        json_document.insert("files", files_json);
     }
     {
-        QJsonObject tags_;
-        for (const auto & tag_model : model->tags)
+        QJsonObject tags_json;
+        for (const auto & [id,tag] : model->tags.collection)
         {
-            if (tag_model.second.tags.size() == 0)
+            if (tag.tags.size() == 0)
                 continue;
             QJsonArray tags;
             int i=0;
-            for (const auto & tag : tag_model.second.tags)
+            for (const auto & tag : tag.tags)
                 tags.insert(i++, QJsonValue(QString(tag.c_str())));
             QJsonObject file_json;
             file_json.insert("tags", tags);
-            tags_.insert(QString(tag_model.second.name.c_str()), file_json);
+            tags_json.insert(QString(id.c_str()), file_json);
         }
-        document.insert("tags", tags_);
+        json_document.insert("tags", tags_json);
     }
 
     QFile file(PathAppend(QString(model->path.c_str()), "eptg.json"));
     file.open(QIODevice::WriteOnly);
-    file.write(QJsonDocument(document).toJson());
+    file.write(QJsonDocument(json_document).toJson());
     file.flush();
     file.close();
 }
@@ -232,8 +176,8 @@ bool TaggableHasTag(const eptg::Model & model, const eptg::taggable & taggable, 
     if (taggable.has_tag(tag))
         return true;
     for (const std::string & t : taggable.tags)
-        if (model.has_tag(t))
-            if (TaggableHasTag(model, *model.get_tag(t), tag))
+        if (model.tags.has(t))
+            if (TaggableHasTag(model, *model.tags.get(t), tag))
                 return true;
     return false;
 }
