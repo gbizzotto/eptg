@@ -29,39 +29,7 @@ bool taggable::has_tag(const std::string & tag) const
     return tags.find(tag) != tags.end();
 }
 
-
-std::vector<std::string> Model::get_parent_tags(const std::vector<std::string> & p_tags) const
-{
-    std::vector<std::string> result;
-    std::set<std::string> tmp_result;
-    for (const std::string & t : p_tags)
-    {
-        if ( ! tags.has(t))
-            continue;
-        const Tag *tag = tags.get(t);
-        for (const std::string & parent_tag_str : tag->tags)
-            tmp_result.insert(parent_tag_str);
-    }
-    for (const std::string & result_tag_str : tmp_result)
-        result.push_back(result_tag_str);
-    return result;
-}
-
-std::vector<std::string> Model::get_descendent_tags(const std::vector<std::string> & p_tags) const
-{
-    std::vector<std::string> result;
-    std::set<std::string> tmp_result;
-    for (const auto & [name,tag] : this->tags.collection)
-        for (const std::string & t : p_tags)
-            if (tag.has_tag(t))
-                tmp_result.insert(name);
-
-    for (const std::string & result_tag_str : tmp_result)
-        result.push_back(result_tag_str);
-    return result;
-}
-
-std::set<std::string> Model::get_common_tags(std::set<taggable*> & taggables) const
+std::set<std::string> Model::get_common_tags(const std::set<taggable*> & taggables) const
 {
     std::set<std::string> result;
     if (taggables.size() == 0)
@@ -73,7 +41,7 @@ std::set<std::string> Model::get_common_tags(std::set<taggable*> & taggables) co
     for ( ; it != end ; ++it)
     {
         if (*it == nullptr)
-            continue;
+            return std::set<std::string>();
         result = (*it)->tags;
         break;
     }
@@ -82,7 +50,7 @@ std::set<std::string> Model::get_common_tags(std::set<taggable*> & taggables) co
         ; ++it)
     {
         if (*it == nullptr)
-            continue;
+            return std::set<std::string>();
         decltype(result) tmp;
         std::set_intersection(result.begin(), result.end(),
                               (*it)->tags.begin(), (*it)->tags.end(),
@@ -107,23 +75,23 @@ std::unique_ptr<Model> Load(const std::string & full_path)
     const QJsonObject files = json["files"].toObject();
     for (const auto & filename : files.keys())
     {
-        File file{filename.toStdString()};
+        File file;
         const auto & f = files[filename];
         for (const auto tagname : f.toObject()["tags"].toArray())
             if (tagname.toString().size() > 0)
                 file.insert_tag(tagname.toString().toStdString());
         if (file.tags.size() > 0)
-            model->files.insert(std::move(file));
+            model->files.insert(filename.toStdString(), std::move(file));
     }
     const QJsonObject tags = json["tags"].toObject();
     for (const auto & tag_name : tags.keys())
     {
-        Tag tag{tag_name.toStdString()};
+        Tag tag{};
         const auto & t = tags[tag_name];
         for (const auto subtagname : t.toObject()["tags"].toArray())
             if (subtagname.toString().size() > 0)
                 tag.insert_tag(subtagname.toString().toStdString());
-        model->tags.insert(std::move(tag));
+        model->tags.insert(tag_name.toStdString(), std::move(tag));
     }
     return model;
 }
@@ -171,13 +139,13 @@ void Save(const std::unique_ptr<Model> & model)
     file.close();
 }
 
-bool TaggableHasTag(const eptg::Model & model, const eptg::taggable & taggable, const std::string & tag)
+bool Model::inherits(const eptg::taggable & taggable, const std::string & tag) const
 {
     if (taggable.has_tag(tag))
         return true;
     for (const std::string & t : taggable.tags)
-        if (model.tags.has(t))
-            if (TaggableHasTag(model, *model.tags.get(t), tag))
+        if (this->tags.has(t))
+            if (this->inherits(*this->tags.get(t), tag))
                 return true;
     return false;
 }
