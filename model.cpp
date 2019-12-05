@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QString>
 #include <QDir>
+#include <QDirIterator>
 
 namespace eptg {
 
@@ -16,20 +17,7 @@ QString PathAppend(const QString & path1, const QString & path2)
     return QDir::cleanPath(path1 + QDir::separator() + path2);
 }
 
-void taggable::insert_tag(const std::string & tag)
-{
-    tags.insert(tag);
-}
-void taggable::erase_tag(const std::string & tag)
-{
-    tags.erase(tag);
-}
-bool taggable::has_tag(const std::string & tag) const
-{
-    return tags.find(tag) != tags.end();
-}
-
-std::set<std::string> Model::get_common_tags(const std::set<taggable*> & taggables) const
+std::set<std::string> Model::get_common_tags(const std::set<const taggable*> & taggables) const
 {
     std::set<std::string> result;
     if (taggables.size() == 0)
@@ -42,7 +30,7 @@ std::set<std::string> Model::get_common_tags(const std::set<taggable*> & taggabl
     {
         if (*it == nullptr)
             return std::set<std::string>();
-        result = (*it)->tags;
+        result = (*it)->inherited_tags;
         break;
     }
     for ( ++it
@@ -53,7 +41,7 @@ std::set<std::string> Model::get_common_tags(const std::set<taggable*> & taggabl
             return std::set<std::string>();
         decltype(result) tmp;
         std::set_intersection(result.begin(), result.end(),
-                              (*it)->tags.begin(), (*it)->tags.end(),
+                              (*it)->inherited_tags.begin(), (*it)->inherited_tags.end(),
                               std::inserter(tmp, tmp.end()));
         result = tmp;
     }
@@ -62,6 +50,17 @@ std::set<std::string> Model::get_common_tags(const std::set<taggable*> & taggabl
 
 std::unique_ptr<Model> Load(const std::string & full_path)
 {
+    std::unique_ptr<Model> model = std::make_unique<Model>(full_path);
+
+    // sweep directory
+    QString qfullpath = QString::fromStdString(full_path);
+    QDir base_path(qfullpath);
+    QStringList filters = {"*.jpg", "*.jpeg", "*.png", "*.gif"};
+    QDirIterator it(QString::fromStdString(full_path), filters, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext())
+        model->files.insert(base_path.relativeFilePath(it.next()).toStdString(), File());
+
+    // read json file
     QFile file(PathAppend(QString(full_path.c_str()), "eptg.json"));
     file.open(QIODevice::ReadOnly);
     QByteArray rawData = file.readAll();
@@ -70,28 +69,26 @@ std::unique_ptr<Model> Load(const std::string & full_path)
     QJsonDocument doc(QJsonDocument::fromJson(rawData));
     QJsonObject json = doc.object();
 
-    std::unique_ptr<Model> model(new Model(full_path));
-
     const QJsonObject files = json["files"].toObject();
     for (const auto & filename : files.keys())
     {
-        File file;
+        File & file = model->files.insert(filename.toStdString(), File());
         const auto & f = files[filename];
         for (const auto tagname : f.toObject()["tags"].toArray())
             if (tagname.toString().size() > 0)
+            {
                 file.insert_tag(tagname.toString().toStdString());
-        if (file.tags.size() > 0)
-            model->files.insert(filename.toStdString(), std::move(file));
+                model->tags.insert(tagname.toString().toStdString(), Tag());
+            }
     }
     const QJsonObject tags = json["tags"].toObject();
     for (const auto & tag_name : tags.keys())
     {
-        Tag tag{};
+        Tag & tag = model->tags.insert(tag_name.toStdString(), Tag());
         const auto & t = tags[tag_name];
         for (const auto subtagname : t.toObject()["tags"].toArray())
             if (subtagname.toString().size() > 0)
                 tag.insert_tag(subtagname.toString().toStdString());
-        model->tags.insert(tag_name.toStdString(), std::move(tag));
     }
     return model;
 }
@@ -103,11 +100,11 @@ void Save(const std::unique_ptr<Model> & model)
         QJsonObject files_json;
         for (const auto & [id,file] : model->files.collection)
         {
-            if (file.tags.size() == 0)
+            if (file.inherited_tags.size() == 0)
                 continue;
             QJsonArray tags;
             int i=0;
-            for (const auto & tag : file.tags)
+            for (const auto & tag : file.inherited_tags)
                 tags.insert(i++, QJsonValue(QString(tag.c_str())));
             QJsonObject file_json;
             file_json.insert("tags", tags);
@@ -119,11 +116,11 @@ void Save(const std::unique_ptr<Model> & model)
         QJsonObject tags_json;
         for (const auto & [id,tag] : model->tags.collection)
         {
-            if (tag.tags.size() == 0)
+            if (tag.inherited_tags.size() == 0)
                 continue;
             QJsonArray tags;
             int i=0;
-            for (const auto & tag : tag.tags)
+            for (const auto & tag : tag.inherited_tags)
                 tags.insert(i++, QJsonValue(QString(tag.c_str())));
             QJsonObject file_json;
             file_json.insert("tags", tags);
@@ -139,15 +136,24 @@ void Save(const std::unique_ptr<Model> & model)
     file.close();
 }
 
-bool Model::inherits(const eptg::taggable & taggable, const std::string & tag) const
+bool Model::inherits(const eptg::taggable & taggable, std::set<std::string> tags_to_have) const
 {
-    if (taggable.has_tag(tag))
-        return true;
-    for (const std::string & t : taggable.tags)
-        if (this->tags.has(t))
-            if (this->inherits(*this->tags.get(t), tag))
-                return true;
-    return false;
+    for ( std::set<std::string> tags = taggable.inherited_tags
+        ; tags.size() > 0 && tags_to_have.size() > 0
+        ; tags = get_common_parent_tags(tags) )
+    {
+        for (const std::string & tag : tags)
+            tags_to_have.erase(tag);
+    }
+    return tags_to_have.size() == 0;
+}
+std::map<std::string,const File*> Model::get_files_tagged_with_all(const std::set<std::string> & tags) const
+{
+    std::map<std::string,const File*> result;
+    for (const auto & [id,f] : files.collection)
+        if (inherits(f, tags))
+            result.insert(std::make_pair(id,&f));
+    return result;
 }
 
 } // namespace

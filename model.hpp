@@ -10,16 +10,18 @@ namespace eptg {
 
 struct taggable
 {
-    std::set<std::string> tags;
+    std::set<std::string> inherited_tags;
 
-    void insert_tag(const std::string & tag);
-    void erase_tag(const std::string & tag);
-    bool has_tag(const std::string & tag) const;
+    inline void insert_tag(const std::string & tag) { inherited_tags.insert(tag); }
+    inline size_t erase_tag (const std::string & tag) { return inherited_tags.erase (tag); }
+    inline bool has_tag   (const std::string & tag) const { return inherited_tags.find(tag) != inherited_tags.end(); }
     template<typename C>
     bool has_tags(const C & tags) const
     {
+        if (tags.size() == 0)
+            return false;
         for (const std::string & t : tags)
-            if (tags.find(t) == tags.end())
+            if (inherited_tags.find(t) == inherited_tags.end())
                 return false;
         return true;
     }
@@ -34,34 +36,40 @@ struct taggable_collection
     std::map<std::string,T> collection;
 
     inline size_t size() const { return collection.size(); }
-
-    const T * get(const std::string & rel_path) const
+    inline size_t count_tagged() const
     {
-        auto it = collection.find(rel_path);
+        return std::count_if(collection.begin(), collection.end(), [](const auto & p) { return p.second.inherited_tags.size() > 0; });
+    }
+
+    const T * find(const std::string & id) const
+    {
+        auto it = collection.find(id);
         if (it == collection.end())
             return nullptr;
         return &it->second;
     }
-    T * get(const std::string & id)        { return const_cast<T*>(const_cast<const taggable_collection<T>*>(this)->get(id)); }
-    T * add(const std::string & id)        { return &collection.insert(std::make_pair(id,T{})).first->second; }
-    void insert(const std::string & id, T && t) { collection.insert(std::make_pair(id, t)); }
+    T * find(const std::string & id) { return const_cast<T*>(const_cast<const taggable_collection<T>*>(this)->find(id)); }
+    T & insert(const std::string & id, T && t) { return collection.insert(std::make_pair(id, t)).first->second; }
     bool has(const std::string & id) const { return collection.find(id) != collection.end(); }
-    std::map<std::string,T> get_tagged_with_all(const std::set<std::string> & tags)
+    std::map<std::string,T> get_tagged_with_all(const std::set<std::string> & tags) const
     {
         std::map<std::string,T> result;
-        for (const auto & elm : collection)
-            if (elm.has_tags(tags))
-                result.insert(elm);
+        for (const auto & p : collection)
+        {
+            if ( ! p.second.has_tags(tags))
+                continue;
+            result.insert(p);
+        }
         return result;
     }
-    std::set<taggable*> get_all_by_name(const std::set<std::string> & ids)
+    std::set<const taggable*> get_all_by_name(const std::set<std::string> & ids) const
     {
-        std::set<taggable*> result;
+        std::set<const taggable*> result;
         for (const std::string & id : ids)
         {
-            auto it = collection.find(id);
-            if (it != collection.end())
-                result.insert(&it->second);
+            const T * t = find(id);
+            if (t != nullptr)
+                result.insert(t);
         }
         return result;
     }
@@ -77,16 +85,34 @@ struct Model
         : path(full_path)
     {}
     template<typename C>
-    std::set<std::string> get_parent_tags(const C & p_tags) const
+    std::set<std::string> get_common_parent_tags(const C & p_tags) const
     {
         std::set<std::string> result;
-        for (const std::string & tag_name : p_tags)
+        auto it = p_tags.begin();
+        for(;;)
         {
-            const Tag *tag = tags.get(tag_name);
+            if (it == p_tags.end())
+                return {};
+            const Tag * tag = tags.find(*it);
+            it++;
             if (tag == nullptr)
                 continue;
-            for (const std::string & parent_tag_str : tag->tags)
-                result.insert(parent_tag_str);
+            result = tag->inherited_tags;
+            break;
+        }
+        for ( ; it!=p_tags.end() && ! result.empty() ; )
+        {
+            const Tag * tag = tags.find(*it);
+            it++;
+            if (tag == nullptr)
+                continue;
+            for (const std::string & common_tag_str : result)
+                if (tag->inherited_tags.find(common_tag_str) == tag->inherited_tags.end())
+                {
+                    result.erase(common_tag_str);
+                    break;
+                }
+
         }
         return result;
     }
@@ -95,14 +121,13 @@ struct Model
     {
         std::set<std::string> result;
         for (const auto & [name,tag] : this->tags.collection)
-            for (const std::string & t : p_tags)
-                if (tag.has_tag(t))
-                    result.insert(name);
+            if (tag.has_tags(p_tags))
+                result.insert(name);
         return result;
     }
-
-    std::set<std::string> get_common_tags(const std::set<taggable*> & taggable) const;
-    bool inherits(const eptg::taggable & taggable, const std::string & tag) const;
+    std::map<std::string,const File*> get_files_tagged_with_all(const std::set<std::string> & tags) const;
+    std::set<std::string> get_common_tags(const std::set<const taggable*> & taggable) const;
+    bool inherits(const eptg::taggable & taggable, std::set<std::string> tags_to_have) const;
 };
 
 std::unique_ptr<Model> Load(const std::string & full_path);

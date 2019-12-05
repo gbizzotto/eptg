@@ -81,7 +81,7 @@
            </layout>
           </item>
           <item>
-           <widget class="QListView" name="fillList">
+           <widget class="QListWidget" name="fillList">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
               <horstretch>0</horstretch>

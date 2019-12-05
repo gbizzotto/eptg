@@ -23,9 +23,9 @@ protected:
 private:
     void open(const QString & pathName);
 private slots:
-    void fillListSelChanged();
     void saveCurrentFileTags();
     void saveCurrentTagTags();
+    void refresh_tag_list();
 
     void on_menuOpenRecent(QAction *action);
 
@@ -41,14 +41,16 @@ private slots:
 
     void on_tagList_itemSelectionChanged();
 
+    void on_fillList_itemSelectionChanged();
+
+    void on_tabWidget_currentChanged(int index);
+
 private:
     std::unique_ptr<eptg::Model> model;
     Ui::MainWindow *ui;
     QLabel *statusCountLabel;
     QLabel *statusPercentTaggedLabel;
     QLabel *statusSizeLabel;
-    std::unique_ptr<QStringListModel> list_model;
-    std::unique_ptr<QStringListModel> filtered_list_model;
     std::map<QString,int> known_tags;
 };
 #endif // MAINWINDOW_H
