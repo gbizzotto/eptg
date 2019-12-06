@@ -1,10 +1,15 @@
 #ifndef MODEL_HPP
 #define MODEL_HPP
 
+#include <vector>
 #include <string>
 #include <set>
 #include <map>
 #include <memory>
+#include <algorithm>
+#include <variant>
+
+#include "search.hpp"
 
 namespace eptg {
 
@@ -84,38 +89,7 @@ struct Model
     inline Model(const std::string & full_path)
         : path(full_path)
     {}
-    template<typename C>
-    std::set<std::string> get_common_parent_tags(const C & p_tags) const
-    {
-        std::set<std::string> result;
-        auto it = p_tags.begin();
-        for(;;)
-        {
-            if (it == p_tags.end())
-                return {};
-            const Tag * tag = tags.find(*it);
-            it++;
-            if (tag == nullptr)
-                continue;
-            result = tag->inherited_tags;
-            break;
-        }
-        for ( ; it!=p_tags.end() && ! result.empty() ; )
-        {
-            const Tag * tag = tags.find(*it);
-            it++;
-            if (tag == nullptr)
-                continue;
-            for (const std::string & common_tag_str : result)
-                if (tag->inherited_tags.find(common_tag_str) == tag->inherited_tags.end())
-                {
-                    result.erase(common_tag_str);
-                    break;
-                }
 
-        }
-        return result;
-    }
     template<typename C>
     std::set<std::string> get_descendent_tags(const C & p_tags) const
     {
@@ -126,8 +100,10 @@ struct Model
         return result;
     }
     std::map<std::string,const File*> get_files_tagged_with_all(const std::set<std::string> & tags) const;
-    std::set<std::string> get_common_tags(const std::set<const taggable*> & taggable) const;
+    std::set<std::string> get_common_tags(const std::set<const taggable*> & taggables) const;
     bool inherits(const eptg::taggable & taggable, std::set<std::string> tags_to_have) const;
+    std::vector<std::string> search(const SearchNode & search_node) const;
+    std::set<std::string> get_all_inherited_tags(const std::set<const taggable*> & taggables) const;
 };
 
 std::unique_ptr<Model> Load(const std::string & full_path);

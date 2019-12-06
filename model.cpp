@@ -1,5 +1,9 @@
 #include "model.hpp"
 #include <algorithm>
+#include <variant>
+#include <algorithm>
+#include <cctype>
+
 #include <QString>
 #include <QByteArray>
 #include <QFile>
@@ -23,16 +27,15 @@ std::set<std::string> Model::get_common_tags(const std::set<const taggable*> & t
     if (taggables.size() == 0)
         return result;
 
-    // get tags for 1st taggable as baseline
     auto it = taggables.begin();
     auto end = taggables.end();
-    for ( ; it != end ; ++it)
-    {
-        if (*it == nullptr)
-            return std::set<std::string>();
-        result = (*it)->inherited_tags;
-        break;
-    }
+
+    // get tags for 1st taggable as baseline
+    if (*it == nullptr)
+        return std::set<std::string>();
+    result = (*it)->inherited_tags;
+
+    // filter out tags that are not in subsequent taggables
     for ( ++it
         ; it != end && result.size() > 0
         ; ++it)
@@ -45,6 +48,7 @@ std::set<std::string> Model::get_common_tags(const std::set<const taggable*> & t
                               std::inserter(tmp, tmp.end()));
         result = tmp;
     }
+
     return result;
 }
 
@@ -140,7 +144,7 @@ bool Model::inherits(const eptg::taggable & taggable, std::set<std::string> tags
 {
     for ( std::set<std::string> tags = taggable.inherited_tags
         ; tags.size() > 0 && tags_to_have.size() > 0
-        ; tags = get_common_parent_tags(tags) )
+        ; tags = get_common_tags(this->tags.get_all_by_name(tags)) )
     {
         for (const std::string & tag : tags)
             tags_to_have.erase(tag);
@@ -153,6 +157,34 @@ std::map<std::string,const File*> Model::get_files_tagged_with_all(const std::se
     for (const auto & [id,f] : files.collection)
         if (inherits(f, tags))
             result.insert(std::make_pair(id,&f));
+    return result;
+}
+
+std::vector<std::string> Model::search(const SearchNode & search_node) const
+{
+    std::vector<std::string> matches;
+
+    for (const auto & p : this->files.collection)
+        if (search_node.eval(this->get_all_inherited_tags({&p.second})))
+            matches.push_back(p.first);
+
+    return matches;
+}
+
+std::set<std::string> Model::get_all_inherited_tags(const std::set<const taggable*> & taggables) const
+{
+    std::set<std::string> result{};
+    for (const taggable * taggable : taggables)
+        for (const std::string & tag : taggable->inherited_tags)
+            result.insert(tag).second;
+    for (std::set<std::string> new_tags = result ; ! new_tags.empty() ; )
+    {
+        const std::string tag = *new_tags.begin();
+        new_tags.erase(new_tags.begin());
+        for (const std::string & tag : get_all_inherited_tags(this->tags.get_all_by_name({tag})))
+            if (result.insert(tag).second)
+                new_tags.insert(tag);
+    }
     return result;
 }
 

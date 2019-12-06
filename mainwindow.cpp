@@ -98,7 +98,7 @@ MainWindow::~MainWindow()
 {
     delete ui;
 }
-void MainWindow::showEvent(QShowEvent *ev)
+void MainWindow::showEvent(QShowEvent *)
 {
     if (ui->menuOpenRecent->actions().size() > 0)
         this->open(ui->menuOpenRecent->actions()[0]->text());
@@ -114,7 +114,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 {
     if (obj == ui->tagsEdit || obj == ui->editTagTags || obj == ui->searchEdit)
     {
-        QLineEdit *edit = ((QLineEdit*)obj);
+        QLineEdit *edit = static_cast<QLineEdit*>(obj);
         if (event->type() == QEvent::KeyPress)
         {
             QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
@@ -199,8 +199,8 @@ void MainWindow::open(const QString & pathName)
     model = eptg::Load(pathName.toStdString());
 
     ui->fillList->clear();
-    for (const auto & [id,file] : model->files.collection)
-        ui->fillList->addItem(QString::fromStdString(id));
+    for (const auto & p : model->files.collection)
+        ui->fillList->addItem(QString::fromStdString(p.first));
     statusCountLabel->setText(QString::number(model->files.size()) + " files");
     if (model->files.size() == 0)
         statusPercentTaggedLabel->setText("");
@@ -263,8 +263,8 @@ void MainWindow::open(const QString & pathName)
 
     // known tags for autocompletion
     known_tags.clear();
-    for (const auto & [key,val] : model->files.collection)
-        for (const std::string & t : val.inherited_tags)
+    for (const auto & p : model->files.collection)
+        for (const std::string & t : p.second.inherited_tags)
         {
             QString tag(t.c_str());
             if (known_tags.find(tag) == known_tags.end())
@@ -302,12 +302,14 @@ void MainWindow::refresh_tag_list()
 
     // update list
     ui->tagList->clearContents();
-    ui->tagList->setRowCount(known_tags.size());
+    ui->tagList->setRowCount(int(known_tags.size()));
     int i = 0;
     for (const auto & [tag,count] : known_tags)
     {
         ui->tagList->setItem(i, 0, new QTableWidgetItem(tag));
-        ui->tagList->setItem(i, 1, new QTableWidgetItem(QString::number(count)));
+        QTableWidgetItem * item = new QTableWidgetItem();
+        item->setData(Qt::EditRole, count);
+        ui->tagList->setItem(i, 1, item);
         i++;
     }
     ui->tagList->sortItems(1, Qt::SortOrder::DescendingOrder);
@@ -420,30 +422,14 @@ void MainWindow::on_searchEdit_returnPressed()
     if ( ! model)
         return;
 
-    std::set<std::string> tags;
-    for (const QString & tag : ui->searchEdit->text().split(' '))
-        if (tag.size() > 0)
-            tags.insert(tag.toStdString());
-
     ui->fillList->clear();
-    if (tags.size() > 0)
-    {
-        auto files = model->get_files_tagged_with_all(tags);
-        size_t tagged_count = 0;
-        for (const auto & [id,file] : files)
-        {
-            ui->fillList->addItem(QString::fromStdString(id));
-            tagged_count += file->inherited_tags.size() > 0;
-        }
-        statusCountLabel->setText(QString::number(files.size()) + " / " + QString::number(model->files.size()) + " files");
-        ui->fillList->setCurrentIndex(ui->fillList->model()->index(0, 0));
-    }
-    else
-    {
-        for (const auto & [id,file] : model->files.collection)
-            ui->fillList->addItem(QString::fromStdString(id));
-        statusCountLabel->setText(QString::number(model->files.size()) + " files");
-    }
+
+    std::vector<std::string> rel_paths = model->search(SearchNode(ui->searchEdit->text().toStdString()));
+    for (const auto & rel_path : rel_paths)
+        ui->fillList->addItem(QString::fromStdString(rel_path));
+
+    statusCountLabel->setText(QString::number(rel_paths.size()) + " / " + QString::number(model->files.size()) + " files");
+    ui->fillList->setCurrentIndex(ui->fillList->model()->index(0, 0));
 
     ui->searchEdit->deselect();
     if (ui->searchEdit->text().size() > 0)
@@ -503,7 +489,7 @@ void MainWindow::saveCurrentTagTags()
                     // update known_tags
                     QString qstr_t = QString::fromStdString(st);
                     auto it = known_tags.lower_bound(qstr_t);
-                    if (it != known_tags.end() || it->first != qstr_t)
+                    if (it == known_tags.end() || it->first != qstr_t)
                         it = known_tags.insert(std::make_pair(qstr_t, 0)).first;
                 }
             }
@@ -532,9 +518,9 @@ void MainWindow::on_editTagTags_returnPressed()
 
 void MainWindow::on_tagList_itemSelectionChanged()
 {
-    std::set<std::string> titles = GetSelectedRowsTitles(ui->tagList->selectedItems());
+    std::set<std::string> tag_names = GetSelectedRowsTitles(ui->tagList->selectedItems());
 
-    if (titles.size() == 0)
+    if (tag_names.size() == 0)
     {
         ui->editTagTags->setText("");
         return;
@@ -543,14 +529,14 @@ void MainWindow::on_tagList_itemSelectionChanged()
     // prepare preview
     QStringList hierarchy;
 
-    for ( std::set<std::string> tags = model->get_common_parent_tags(titles)
+    for ( std::set<std::string> tags = model->get_common_tags(model->tags.get_all_by_name(tag_names))
         ; tags.size() > 0
-        ; tags = model->get_common_parent_tags(tags) )
+        ; tags = model->get_common_tags(model->tags.get_all_by_name(tags)) )
     {
-        hierarchy += QStringListFromStd(tags).join(", ");
+        hierarchy.insert(0, QStringListFromStd(tags).join(", "));
     }
-    hierarchy += QString("<b>").append(QStringListFromStd(titles).join(", ")).append("</b>");
-    for ( std::set<std::string> tags = model->get_descendent_tags(titles)
+    hierarchy += QString("<b>").append(QStringListFromStd(tag_names).join(", ")).append("</b>");
+    for ( std::set<std::string> tags = model->get_descendent_tags(tag_names)
         ; tags.size() > 0
         ; tags = model->get_descendent_tags(tags) )
     {
@@ -560,7 +546,7 @@ void MainWindow::on_tagList_itemSelectionChanged()
     ui->tagTreePreview->setText(hierarchy.join("<br/>↑<br/>"));
 
     // set tag line into edit
-    std::set<const eptg::taggable*> selected_tags = model->tags.get_all_by_name(titles);
+    std::set<const eptg::taggable*> selected_tags = model->tags.get_all_by_name(tag_names);
     QStringList common_tags = QStringListFromStd(model->get_common_tags(selected_tags));
     ui->editTagTags->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->editTagTags->setFocus();
@@ -586,8 +572,8 @@ void MainWindow::on_fillList_itemSelectionChanged()
         {
             QPixmap image_result(ui->fillPreview->width(), ui->fillPreview->height());
             image_result.fill(Qt::transparent);
-            int cols = (int) std::ceil(std::sqrt(selected_items_text.size()));
-            int rows = (int) std::ceil(selected_items_text.size() * 1.0 / cols);
+            int cols = int(std::ceil(std::sqrt(selected_items_text.size())));
+            int rows = int(std::ceil(selected_items_text.size() * 1.0 / cols));
             int w = image_result.width() / cols;
             int h = image_result.height() / rows;
             auto it = selected_items_text.begin();
