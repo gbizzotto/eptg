@@ -290,9 +290,9 @@ void MainWindow::open(const QString & pathName)
     QStringList cols;
     cols << "Name" << "Use count";
     ui->tagList->setHorizontalHeaderLabels(cols);
-
     if (ui->tabWidget->currentIndex() == 1)
         refresh_tag_list();
+    ui->tagList->sortItems(1, Qt::SortOrder::DescendingOrder);
 }
 
 void MainWindow::refresh_tag_list()
@@ -306,13 +306,13 @@ void MainWindow::refresh_tag_list()
     int i = 0;
     for (const auto & [tag,count] : known_tags)
     {
-        ui->tagList->setItem(i, 0, new QTableWidgetItem(tag));
-        QTableWidgetItem * item = new QTableWidgetItem();
-        item->setData(Qt::EditRole, count);
-        ui->tagList->setItem(i, 1, item);
+        QTableWidgetItem * item_name = new QTableWidgetItem(tag);
+        ui->tagList->setItem(i, 0, item_name);
+        QTableWidgetItem * item_count = new QTableWidgetItem();
+        item_count->setData(Qt::EditRole, count);
+        ui->tagList->setItem(item_name->row(), 1, item_count);
         i++;
     }
-    ui->tagList->sortItems(1, Qt::SortOrder::DescendingOrder);
 
     // restore selected items
     ui->tagList->setSelectionMode(QAbstractItemView::MultiSelection);
