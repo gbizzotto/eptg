@@ -4,12 +4,14 @@
 #include <QMainWindow>
 #include <QStringListModel>
 #include <QLabel>
+#include <QLineEdit>
 #include <memory>
 #include "model.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
+
 
 class MainWindow : public QMainWindow
 {

@@ -18,12 +18,16 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     model.cpp \
+    mylineedit.cpp \
+    mytablewidget.cpp \
     search.cpp
 
 HEADERS += \
     constants.hpp \
     mainwindow.h \
     model.hpp \
+    mylineedit.h \
+    mytablewidget.h \
     search.hpp
 
 FORMS += \

@@ -11,6 +11,7 @@
 #include <QStringListModel>
 #include <QModelIndexList>
 #include <QKeyEvent>
+#include <QScrollBar>
 
 int GetColumn(const QTableWidgetItem *item) { return item->column(); }
 int GetColumn(const QModelIndex      &item) { return item .column(); }
@@ -112,13 +113,28 @@ void MainWindow::on_menuOpenRecent(QAction *action)
 
 bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 {
+    if (event->type() == QEvent::KeyPress)
+    {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_F && keyEvent->modifiers().testFlag(Qt::KeyboardModifier::ControlModifier))
+        {
+            ui->tabWidget->setCurrentIndex(0);
+            ui->searchEdit->setFocus();
+        }
+        else if (keyEvent->key() == Qt::Key_W && keyEvent->modifiers().testFlag(Qt::KeyboardModifier::ControlModifier))
+        {
+            QApplication::quit();
+        }
+    }
+
     if (obj == ui->tagsEdit || obj == ui->editTagTags || obj == ui->searchEdit)
     {
         QLineEdit *edit = static_cast<QLineEdit*>(obj);
         if (event->type() == QEvent::KeyPress)
         {
             QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-            if (keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_Down)
+            if (  keyEvent->key() == Qt::Key_Up     || keyEvent->key() == Qt::Key_Down
+               || keyEvent->key() == Qt::Key_PageUp || keyEvent->key() == Qt::Key_PageDown )
             {
                 if (edit == ui->tagsEdit || edit == ui->searchEdit)
                 {
@@ -604,5 +620,8 @@ void MainWindow::on_fillList_itemSelectionChanged()
 void MainWindow::on_tabWidget_currentChanged(int index)
 {
     if (index == 1)
+    {
         refresh_tag_list();
+        ui->tagList->verticalScrollBar()->width();
+    }
 }
