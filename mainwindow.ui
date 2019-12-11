@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>eptgQt</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>../../../Downloads/octant.png</normaloff>../../../Downloads/octant.png</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout_3">
     <property name="leftMargin">
@@ -301,7 +305,9 @@
     </widget>
     <addaction name="menuOpenFolder"/>
     <addaction name="menuOpenRecent"/>
+    <addaction name="separator"/>
     <addaction name="menuOpenContainingFolder"/>
+    <addaction name="actionGoto_first_untagged"/>
     <addaction name="separator"/>
     <addaction name="menuQuit"/>
    </widget>
@@ -331,6 +337,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+W</string>
+   </property>
+  </action>
+  <action name="actionGoto_first_untagged">
+   <property name="text">
+    <string>Goto first untagged</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+G</string>
    </property>
   </action>
  </widget>

@@ -29,6 +29,7 @@ private slots:
     void saveCurrentTagTags();
     void refresh_tag_list();
     bool OpenContainingFolder(const QStringList & paths) const;
+    void GotoFirstUntagged();
 
     void on_menuOpenRecent(QAction *action);
 
@@ -53,6 +54,8 @@ private slots:
     void on_menuQuit_triggered();
 
     void on_menuOpenContainingFolder_triggered();
+
+    void on_actionGoto_first_untagged_triggered();
 
 private:
     std::unique_ptr<eptg::Model> model;

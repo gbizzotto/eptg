@@ -233,18 +233,10 @@ void MainWindow::open(const QString & pathName)
         ui->fillList->setCurrentRow(0);
     this->setWindowTitle("eptgQt - " + pathName);
 
-    // find first untagged file
     ui->searchEdit->setFocus();
-    for (int i=0 ; i<ui->fillList->count() ; i++)
-    {
-        eptg::File * f = model->files.find(ui->fillList->item(i)->data(Qt::DisplayRole).toString().toStdString());
-        if (f == nullptr || f->inherited_tags.size() == 0)
-        {
-            ui->fillList->setCurrentRow(i);
-            ui->tagsEdit->setFocus();
-            break;
-        }
-    }
+
+    // find first untagged file
+    GotoFirstUntagged();
 
     // set recent menu
     if (ui->menuOpenRecent->actions().size() == 0)
@@ -685,4 +677,23 @@ void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
 void MainWindow::on_menuQuit_triggered()
 {
     QApplication::quit();
+}
+
+void MainWindow::on_actionGoto_first_untagged_triggered()
+{
+    GotoFirstUntagged();
+}
+
+void MainWindow::GotoFirstUntagged()
+{
+    for (int i=0 ; i<ui->fillList->count() ; i++)
+    {
+        eptg::File * f = model->files.find(ui->fillList->item(i)->data(Qt::DisplayRole).toString().toStdString());
+        if (f == nullptr || f->inherited_tags.size() == 0)
+        {
+            ui->fillList->setCurrentRow(i);
+            ui->tagsEdit->setFocus();
+            break;
+        }
+    }
 }
