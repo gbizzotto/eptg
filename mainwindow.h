@@ -28,6 +28,7 @@ private slots:
     void saveCurrentFileTags();
     void saveCurrentTagTags();
     void refresh_tag_list();
+    bool OpenContainingFolder(const QStringList & paths) const;
 
     void on_menuOpenRecent(QAction *action);
 
@@ -46,6 +47,12 @@ private slots:
     void on_fillList_itemSelectionChanged();
 
     void on_tabWidget_currentChanged(int index);
+
+    void on_fillList_doubleClicked(const QModelIndex &index);
+
+    void on_menuQuit_triggered();
+
+    void on_menuOpenContainingFolder_triggered();
 
 private:
     std::unique_ptr<eptg::Model> model;

@@ -301,6 +301,9 @@
     </widget>
     <addaction name="menuOpenFolder"/>
     <addaction name="menuOpenRecent"/>
+    <addaction name="menuOpenContainingFolder"/>
+    <addaction name="separator"/>
+    <addaction name="menuQuit"/>
    </widget>
    <addaction name="menuFile"/>
   </widget>
@@ -312,6 +315,22 @@
   <action name="actionlj">
    <property name="text">
     <string>lj</string>
+   </property>
+  </action>
+  <action name="menuOpenContainingFolder">
+   <property name="text">
+    <string>Open containing folder</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="menuQuit">
+   <property name="text">
+    <string>Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+W</string>
    </property>
   </action>
  </widget>

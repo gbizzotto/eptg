@@ -12,6 +12,7 @@
 #include <QModelIndexList>
 #include <QKeyEvent>
 #include <QScrollBar>
+#include <QProcess>
 
 int GetColumn(const QTableWidgetItem *item) { return item->column(); }
 int GetColumn(const QModelIndex      &item) { return item .column(); }
@@ -120,10 +121,6 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
         {
             ui->tabWidget->setCurrentIndex(0);
             ui->searchEdit->setFocus();
-        }
-        else if (keyEvent->key() == Qt::Key_W && keyEvent->modifiers().testFlag(Qt::KeyboardModifier::ControlModifier))
-        {
-            QApplication::quit();
         }
     }
 
@@ -624,4 +621,68 @@ void MainWindow::on_tabWidget_currentChanged(int index)
         refresh_tag_list();
         ui->tagList->verticalScrollBar()->width();
     }
+}
+
+bool MainWindow::OpenContainingFolder(const QStringList & paths) const
+{
+    bool success = false;
+#if defined(Q_OS_WIN)
+    QStringList args;
+//    if (!info.isDir())
+        args << "/select,";
+    args << QDir::toNativeSeparators(path);
+    success = QProcess::startDetached("explorer", args)
+#elif defined(Q_OS_MAC)
+    QStringList args;
+    args << "-e";
+    args << "tell application \"Finder\"";
+    args << "-e";
+    args << "activate";
+    args << "-e";
+    args << "select POSIX file \"" + path + "\"";
+    args << "-e";
+    args << "end tell";
+    args << "-e";
+    args << "return";
+    success = QProcess::execute("/usr/bin/osascript", args)
+#elif defined(Q_OS_LINUX)
+    QProcess browserProc;
+    success = QProcess::startDetached(QString("nemo"), paths, QString("."));
+    if (!success)
+        success = QProcess::startDetached(QString("nautilus"), paths, QString("."));
+    const QString error = QString::fromLocal8Bit(browserProc.readAllStandardError());
+    success = success && error.isEmpty();
+#endif
+    return success;
+}
+
+void MainWindow::on_menuOpenContainingFolder_triggered()
+{
+    auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
+    if (selected_items.size() == 0)
+    {
+        ui->statusbar->showMessage("Nothing to open.", 5000);
+        return;
+    }
+    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
+
+//    QStringList qpaths;
+//    for (const std::string & rel_path : titles)
+//        qpaths.append(PathAppend(QString::fromStdString(model->path), QString::fromStdString(rel_path)));
+
+    if (!OpenContainingFolder(QStringList(PathAppend(QString::fromStdString(model->path), QString::fromStdString(*titles.begin())))))
+        ui->statusbar->showMessage("Can't open file browser.", 5000);
+}
+
+void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
+{
+    QString path = PathAppend(QString::fromStdString(model->path), ui->fillList->item(index.row())->text());
+
+    if (!OpenContainingFolder(QStringList(path)))
+        ui->statusbar->showMessage("Can't open file browser.", 5000);
+}
+
+void MainWindow::on_menuQuit_triggered()
+{
+    QApplication::quit();
 }
