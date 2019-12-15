@@ -1,7 +1,7 @@
 
 #include <atomic>
 
-#include "find_similar.h"
+#include "dialog_find_similar.h"
 #include "ui_find_similar.h"
 #include "model.hpp"
 #include "helpers.hpp"
@@ -17,11 +17,6 @@ FindSimilarDialog::FindSimilarDialog(const eptg::Model & model, QWidget * parent
 {
     setupUi(this);
     go_on.store(false);
-    this->setWindowTitle("Find similar pictures");
-}
-
-void FindSimilarDialog::on_buttonBox_accepted()
-{
 }
 
 void FindSimilarDialog::on_buttonBox_clicked(QAbstractButton *button)

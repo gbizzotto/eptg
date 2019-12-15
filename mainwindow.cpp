@@ -3,7 +3,8 @@
 #include <cmath>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "find_similar.h"
+#include "dialog_find_similar.h"
+#include "dialog_process.h"
 #include "constants.hpp"
 #include <QFileDialog>
 #include <QKeyEvent>
@@ -510,47 +511,69 @@ void MainWindow::on_tagList_itemSelectionChanged()
     ui->editTagTags->setFocus();
 }
 
+void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_text)
+{
+    if (selected_items_text.size() == 1)
+    {
+        auto full_path = PathAppend(QString::fromStdString(model->path), QString::fromStdString(*selected_items_text.begin()));
+        QPixmap image(full_path);
+        if (image.width() > ui->fillPreview->width() || image.height() > ui->fillPreview->height())
+            ui->fillPreview->setPixmap(image.scaled(ui->fillPreview->width(), ui->fillPreview->height(), Qt::AspectRatioMode::KeepAspectRatio));
+        else
+            ui->fillPreview->setPixmap(image);
+        statusSizeLabel->setText(QString::number(image.width()) + " x " + QString::number(image.height()));
+    }
+    else if (selected_items_text.size() > 0)
+    {
+        QPixmap image_result(ui->fillPreview->width(), ui->fillPreview->height());
+        image_result.fill(Qt::transparent);
+        int cols = int(std::ceil(std::sqrt(selected_items_text.size())));
+        int rows = int(std::ceil(selected_items_text.size() * 1.0 / cols));
+        int w = image_result.width() / cols;
+        int h = image_result.height() / rows;
+        auto it = selected_items_text.begin();
+        for (int r = 0 ; r<rows ; ++r)
+            for (int c = 0 ; c<cols && it!=selected_items_text.end() ; ++c,++it)
+            {
+                auto full_path = PathAppend(QString::fromStdString(model->path), QString::fromStdString(*it));
+                QPixmap image(full_path);
+                if (image.width() > w || image.height() > h)
+                    image = image.scaled(w-IMG_BORDER, h-IMG_BORDER, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
+                QRectF targetRect(w*c + (w-image.width())/2, h*r + (h-image.height())/2, image.width(), image.height());
+                QRectF sourceRect(0, 0, image.width(), image.height());
+                QPainter painter(&image_result);
+                painter.drawPixmap(targetRect, image, sourceRect);
+            }
+        statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
+        ui->fillPreview->setPixmap(image_result);
+    }
+}
+
 void MainWindow::on_fillList_itemSelectionChanged()
 {
     std::set<std::string> selected_items_text = GetSelectedRowsTitles(ui->fillList->selectionModel()->selectedIndexes());
 
-    // prepare preview
+    // display full path
+    if (selected_items_text.size() == 1)
     {
-        if (selected_items_text.size() == 1)
-        {
-            auto full_path = PathAppend(QString::fromStdString(model->path), QString::fromStdString(*selected_items_text.begin()));
-            QPixmap image(full_path);
-            if (image.width() > ui->fillPreview->width() || image.height() > ui->fillPreview->height())
-                ui->fillPreview->setPixmap(image.scaled(ui->fillPreview->width(), ui->fillPreview->height(), Qt::AspectRatioMode::KeepAspectRatio));
-            else
-                ui->fillPreview->setPixmap(image);
-            statusSizeLabel->setText(QString::number(image.width()) + " x " + QString::number(image.height()));
-        }
-        else if (selected_items_text.size() > 0)
-        {
-            QPixmap image_result(ui->fillPreview->width(), ui->fillPreview->height());
-            image_result.fill(Qt::transparent);
-            int cols = int(std::ceil(std::sqrt(selected_items_text.size())));
-            int rows = int(std::ceil(selected_items_text.size() * 1.0 / cols));
-            int w = image_result.width() / cols;
-            int h = image_result.height() / rows;
-            auto it = selected_items_text.begin();
-            for (int r = 0 ; r<rows ; ++r)
-                for (int c = 0 ; c<cols && it!=selected_items_text.end() ; ++c,++it)
-                {
-                    auto full_path = PathAppend(QString::fromStdString(model->path), QString::fromStdString(*it));
-                    QPixmap image(full_path);
-                    if (image.width() > w || image.height() > h)
-                        image = image.scaled(w-IMG_BORDER, h-IMG_BORDER, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
-                    QRectF targetRect(w*c + (w-image.width())/2, h*r + (h-image.height())/2, image.width(), image.height());
-                    QRectF sourceRect(0, 0, image.width(), image.height());
-                    QPainter painter(&image_result);
-                    painter.drawPixmap(targetRect, image, sourceRect);
-                }
-            statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
-            ui->fillPreview->setPixmap(image_result);
-        }
+        ui->fullpathLabel->setText(PathAppend(QString::fromStdString(model->path), QString::fromStdString(*selected_items_text.begin())));
+        int w = ui->fullpathLabel->fontMetrics().width(ui->fullpathLabel->text());
+        if (w <= ui->fullpathLabel->width() - 8)
+            ui->fullpathLabel->setAlignment(Qt::AlignLeft);
+        else
+            ui->fullpathLabel->setAlignment(Qt::AlignRight);
     }
+    else
+    {
+        ui->fullpathLabel->setAlignment(Qt::AlignLeft);
+        ui->fullpathLabel->setText("Many...");
+    }
+
+    // prepare preview
+    if (ui->previewCheckBox->checkState() == Qt::CheckState::Checked)
+        this->PreviewPictures(selected_items_text);
+    else
+        ui->fillPreview->setPixmap(QPixmap());
 
     // set tag line into edit
     std::set<const eptg::taggable*> selected_files = model->files.get_all_by_name(selected_items_text);
@@ -657,15 +680,6 @@ void MainWindow::on_menuFindSimilar_triggered()
     find_similar_dialog->exec();
 }
 
-void MainWindow::on_pushButton_clicked()
-{
-
-}
-
-void MainWindow::on_simiList_itemSelectionChanged()
-{
-
-}
 void MainWindow::ShowSimilarGroups(const std::vector<std::vector<std::string>> & groups)
 {
     ui->fillList->clear();
@@ -677,4 +691,29 @@ void MainWindow::ShowSimilarGroups(const std::vector<std::vector<std::string>> &
     }
     if (ui->fillList->count() > 0)
         ui->fillList->setCurrentRow(0);
+}
+
+void MainWindow::on_menuProcess_triggered()
+{
+    auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
+    if (selected_items.size() == 0)
+    {
+        ui->statusbar->showMessage("No file selected.", 5000);
+        return;
+    }
+    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
+
+    QDialog * process_dialog = new ProcessDialog(*this->model, titles, this);
+    process_dialog->exec();
+}
+
+void MainWindow::on_previewCheckBox_toggled(bool checked)
+{
+    std::set<std::string> selected_items_text = GetSelectedRowsTitles(ui->fillList->selectionModel()->selectedIndexes());
+
+    // prepare preview
+    if (checked)
+        this->PreviewPictures(selected_items_text);
+    else
+        ui->fillPreview->setPixmap(QPixmap());
 }

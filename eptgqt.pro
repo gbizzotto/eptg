@@ -15,7 +15,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    find_similar.cpp \
+    dialog_find_similar.cpp \
+    dialog_process.cpp \
     helpers.cpp \
     main.cpp \
     mainwindow.cpp \
@@ -26,7 +27,8 @@ SOURCES += \
 
 HEADERS += \
     constants.hpp \
-    find_similar.h \
+    dialog_find_similar.h \
+    dialog_process.h \
     helpers.hpp \
     mainwindow.h \
     model.hpp \
@@ -36,7 +38,8 @@ HEADERS += \
 
 FORMS += \
     find_similar.ui \
-    mainwindow.ui
+    mainwindow.ui \
+    process.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

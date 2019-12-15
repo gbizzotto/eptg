@@ -129,6 +129,51 @@
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_3">
           <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_6">
+            <property name="sizeConstraint">
+             <enum>QLayout::SetMinimumSize</enum>
+            </property>
+            <item>
+             <widget class="QLabel" name="fullpathLabel">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="frameShape">
+               <enum>QFrame::StyledPanel</enum>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="previewCheckBox">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="text">
+               <string>Preview</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
            <widget class="QLabel" name="fillPreview">
             <property name="minimumSize">
              <size>
@@ -316,6 +361,7 @@
      <string>Tools</string>
     </property>
     <addaction name="menuFindSimilar"/>
+    <addaction name="menuProcess"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -357,6 +403,11 @@
   <action name="menuFindSimilar">
    <property name="text">
     <string>Find similar pictures...</string>
+   </property>
+  </action>
+  <action name="menuProcess">
+   <property name="text">
+    <string>Process...</string>
    </property>
   </action>
  </widget>

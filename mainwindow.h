@@ -32,6 +32,7 @@ private slots:
     void refresh_tag_list();
     bool OpenContainingFolder(const QStringList & paths) const;
     void GotoFirstUntagged();
+    void PreviewPictures(const std::set<std::string> & selected_items_text);
 
     void on_menuOpenRecent(QAction *action);
 
@@ -59,11 +60,11 @@ private slots:
 
     void on_actionGoto_first_untagged_triggered();
 
-    void on_pushButton_clicked();
-
-    void on_simiList_itemSelectionChanged();
-
     void on_menuFindSimilar_triggered();
+
+    void on_menuProcess_triggered();
+
+    void on_previewCheckBox_toggled(bool checked);
 
 private:
     std::unique_ptr<eptg::Model> model;
