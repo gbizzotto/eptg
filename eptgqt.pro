@@ -15,6 +15,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    find_similar.cpp \
+    helpers.cpp \
     main.cpp \
     mainwindow.cpp \
     model.cpp \
@@ -24,6 +26,8 @@ SOURCES += \
 
 HEADERS += \
     constants.hpp \
+    find_similar.h \
+    helpers.hpp \
     mainwindow.h \
     model.hpp \
     mylineedit.h \
@@ -31,6 +35,7 @@ HEADERS += \
     search.hpp
 
 FORMS += \
+    find_similar.ui \
     mainwindow.ui
 
 # Default rules for deployment.

@@ -311,7 +311,14 @@
     <addaction name="separator"/>
     <addaction name="menuQuit"/>
    </widget>
+   <widget class="QMenu" name="menuTools">
+    <property name="title">
+     <string>Tools</string>
+    </property>
+    <addaction name="menuFindSimilar"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuTools"/>
   </widget>
   <action name="menuOpenFolder">
    <property name="text">
@@ -345,6 +352,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+G</string>
+   </property>
+  </action>
+  <action name="menuFindSimilar">
+   <property name="text">
+    <string>Find similar pictures</string>
    </property>
   </action>
  </widget>
