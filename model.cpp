@@ -76,6 +76,8 @@ std::unique_ptr<Model> Load(const std::string & full_path)
     const QJsonObject files = json["files"].toObject();
     for (const auto & filename : files.keys())
     {
+        if ( ! model->files.has(filename.toStdString())) // prune deleted files
+            continue;
         File & file = model->files.insert(filename.toStdString(), File());
         const auto & f = files[filename];
         for (const auto tagname : f.toObject()["tags"].toArray())
@@ -187,5 +189,24 @@ std::set<std::string> Model::get_all_inherited_tags(const std::set<const taggabl
     }
     return result;
 }
+
+//bool MyImage::close(const MyImage & other) const
+//{
+//    for (int x=0 ; x<10 ; x++)
+//        for (int y=0 ; y<10 ; y++)
+//                 if (std::get<0>(quadrant_colors[x][y]) - std::get<0>(other.quadrant_colors[x][y]) > 10)
+//                return false;
+//            else if (std::get<0>(quadrant_colors[x][y]) - std::get<0>(other.quadrant_colors[x][y]) < -10)
+//                return false;
+//             else if (std::get<1>(quadrant_colors[x][y]) - std::get<1>(other.quadrant_colors[x][y]) > 10)
+//                 return false;
+//             else if (std::get<1>(quadrant_colors[x][y]) - std::get<1>(other.quadrant_colors[x][y]) < -10)
+//                 return false;
+//             else if (std::get<2>(quadrant_colors[x][y]) - std::get<2>(other.quadrant_colors[x][y]) > 10)
+//                 return false;
+//             else if (std::get<2>(quadrant_colors[x][y]) - std::get<2>(other.quadrant_colors[x][y]) < -10)
+//                 return false;
+//    return true;
+//}
 
 } // namespace

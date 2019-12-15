@@ -5,6 +5,7 @@
 #include <QStringListModel>
 #include <QLabel>
 #include <QLineEdit>
+#include <QDialog>
 #include <memory>
 #include "model.hpp"
 
@@ -20,6 +21,7 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    void ShowSimilarGroups(const std::vector<std::vector<std::string>> & groups);
 protected:
     void showEvent(QShowEvent *ev);
 private:
@@ -56,6 +58,12 @@ private slots:
     void on_menuOpenContainingFolder_triggered();
 
     void on_actionGoto_first_untagged_triggered();
+
+    void on_pushButton_clicked();
+
+    void on_simiList_itemSelectionChanged();
+
+    void on_menuFindSimilar_triggered();
 
 private:
     std::unique_ptr<eptg::Model> model;

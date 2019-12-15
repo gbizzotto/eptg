@@ -1,6 +1,9 @@
+#include <thread>
+#include <atomic>
 #include <cmath>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "find_similar.h"
 #include "constants.hpp"
 #include <QFileDialog>
 #include <QKeyEvent>
@@ -13,57 +16,10 @@
 #include <QKeyEvent>
 #include <QScrollBar>
 #include <QProcess>
+#include <QRgb>
+#include <QThread>
 
-int GetColumn(const QTableWidgetItem *item) { return item->column(); }
-int GetColumn(const QModelIndex      &item) { return item .column(); }
-QVariant GetData(const QTableWidgetItem *item) { return item->data(Qt::DisplayRole); }
-QVariant GetData(const QModelIndex      &item) { return item .data(Qt::DisplayRole); }
-
-template<typename ITEM_TYPE>
-std::set<std::string> GetSelectedRowsTitles(const QList<ITEM_TYPE> & selected_items)
-{
-    std::set<std::string> result;
-    for (int i=0 ; i<selected_items.size() ; i++)
-        if (GetColumn(selected_items[i]) == 0)
-            result.insert(GetData(selected_items[i]).toString().toStdString());
-    return result;
-}
-
-template<typename C>
-QStringList QStringListFromStd(const C & container)
-{
-    QStringList result;
-    for (const std::string & s : container)
-        result.append(QString::fromStdString(s));
-    return result;
-}
-
-template<typename C>
-QStringList QStringListFromStd(C && string_collection)
-{
-    QStringList result;
-    for (const std::string & str : string_collection)
-        result += QString::fromStdString(str);
-    return result;
-}
-
-template<typename T>
-QString & operator<<(QString & out, const T & t)
-{
-    return out.append(t);
-}
-template<>
-QString & operator<<(QString & out, const std::string & t)
-{
-    return out.append(t.c_str());
-}
-
-QString PathAppend(const QString & path1, const QString & path2)
-{
-    if (path1.size() == 0)
-        return path2;
-    return QDir::cleanPath(path1 + QDir::separator() + path2);
-}
+#include <helpers.hpp>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -234,9 +190,6 @@ void MainWindow::open(const QString & pathName)
     this->setWindowTitle("eptgQt - " + pathName);
 
     ui->searchEdit->setFocus();
-
-    // find first untagged file
-    GotoFirstUntagged();
 
     // set recent menu
     if (ui->menuOpenRecent->actions().size() == 0)
@@ -696,4 +649,32 @@ void MainWindow::GotoFirstUntagged()
             break;
         }
     }
+}
+
+void MainWindow::on_menuFindSimilar_triggered()
+{
+    QDialog * find_similar_dialog = new FindSimilarDialog(*this->model, this);
+    find_similar_dialog->exec();
+}
+
+void MainWindow::on_pushButton_clicked()
+{
+
+}
+
+void MainWindow::on_simiList_itemSelectionChanged()
+{
+
+}
+void MainWindow::ShowSimilarGroups(const std::vector<std::vector<std::string>> & groups)
+{
+    ui->fillList->clear();
+    for (auto & group : groups)
+    {
+        for (auto & str : group)
+            ui->fillList->addItem(QString::fromStdString(str));
+        ui->fillList->addItem("");
+    }
+    if (ui->fillList->count() > 0)
+        ui->fillList->setCurrentRow(0);
 }
