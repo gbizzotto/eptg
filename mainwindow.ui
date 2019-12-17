@@ -397,7 +397,7 @@
   </action>
   <action name="actionGoto_first_untagged">
    <property name="text">
-    <string>Goto first untagged</string>
+    <string>Find first untagged</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+G</string>
