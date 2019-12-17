@@ -1,26 +1,9 @@
 
 #include "search.hpp"
+#include "helpers.hpp"
 
 #include <algorithm>
 #include <assert.h>
-
-template<class Container, class T>
-auto find_impl(Container& c, const T& value, int) -> decltype(c.find(value)){
-    return c.find(value);
-}
-template<class Container, class T>
-auto find_impl(Container& c, const T& value, long) -> decltype(std::begin(c)){
-    return std::find(std::begin(c), std::end(c), value);
-}
-template<class Container, class T>
-auto find(Container& c, const T& value) -> decltype(find_impl(c, value, 0)) {
-    return find_impl(c, value, 0);
-}
-template<typename C>
-bool in(const C & container, const typename C::value_type & v)
-{
-    return find(container, v) != container.end();
-}
 
 bool in(const char * values, const char v)
 {

@@ -26,20 +26,12 @@ struct taggable
     template<typename C>
     bool has_tags(const C & tags) const
     {
-        if (tags.size() == 0)
-            return false;
-        for (const std::string & t : tags)
-            if (inherited_tags.find(t) == inherited_tags.end())
-                return false;
-        return true;
+        return std::find_if(tags.begin(), tags.end(), [this](const std::string & t){ return ! in(inherited_tags, t); }) == tags.end();
     }
     template<typename C>
     bool has_one(const C & tags) const
     {
-        for (const std::string & t : tags)
-            if (inherited_tags.find(t) != inherited_tags.end())
-                return true;
-        return false;
+        return std::find_if(tags.begin(), tags.end(), [this](const std::string & t){ return in(inherited_tags, t); }) != tags.end();
     }
 };
 
