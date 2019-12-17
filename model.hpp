@@ -33,6 +33,14 @@ struct taggable
                 return false;
         return true;
     }
+    template<typename C>
+    bool has_one(const C & tags) const
+    {
+        for (const std::string & t : tags)
+            if (inherited_tags.find(t) != inherited_tags.end())
+                return true;
+        return false;
+    }
 };
 
 using File = taggable;
@@ -98,7 +106,7 @@ struct Model
     {
         std::set<std::string> result;
         for (const auto & [name,tag] : this->tags.collection)
-            if (tag.has_tags(p_tags))
+            if (tag.has_one(p_tags))
                 result.insert(name);
         return result;
     }
