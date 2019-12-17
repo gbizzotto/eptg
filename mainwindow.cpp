@@ -513,7 +513,9 @@ void MainWindow::on_tagList_itemSelectionChanged()
 
 void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_text)
 {
-    if (selected_items_text.size() == 1)
+    if (selected_items_text.size() == 0)
+        ui->fillPreview->setPixmap(QPixmap());
+    else if (selected_items_text.size() == 1)
     {
         auto full_path = PathAppend(QString::fromStdString(model->path), QString::fromStdString(*selected_items_text.begin()));
         QPixmap image(full_path);
@@ -554,7 +556,9 @@ void MainWindow::on_fillList_itemSelectionChanged()
     std::set<std::string> selected_items_text = GetSelectedRowsTitles(ui->fillList->selectionModel()->selectedIndexes());
 
     // display full path
-    if (selected_items_text.size() == 1)
+    if (selected_items_text.size() == 0)
+        ui->fullpathLabel->setText("");
+    else if (selected_items_text.size() == 1)
     {
         ui->fullpathLabel->setText(PathAppend(QString::fromStdString(model->path), QString::fromStdString(*selected_items_text.begin())));
         int w = ui->fullpathLabel->fontMetrics().width(ui->fullpathLabel->text());
