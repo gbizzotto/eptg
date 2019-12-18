@@ -190,11 +190,18 @@
               <height>16777215</height>
              </size>
             </property>
+            <property name="font">
+             <font>
+              <pointsize>20</pointsize>
+              <weight>50</weight>
+              <bold>false</bold>
+             </font>
+            </property>
             <property name="text">
              <string/>
             </property>
             <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+             <set>Qt::AlignCenter</set>
             </property>
            </widget>
           </item>
@@ -365,6 +372,8 @@
     </property>
     <addaction name="menuFindSimilar"/>
     <addaction name="menuProcess"/>
+    <addaction name="menuCopyFiles"/>
+    <addaction name="menuMoveFiles"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -411,6 +420,16 @@
   <action name="menuProcess">
    <property name="text">
     <string>Process...</string>
+   </property>
+  </action>
+  <action name="menuCopyFiles">
+   <property name="text">
+    <string>Copy files...</string>
+   </property>
+  </action>
+  <action name="menuMoveFiles">
+   <property name="text">
+    <string>Move files...</string>
    </property>
   </action>
  </widget>

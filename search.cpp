@@ -5,14 +5,6 @@
 #include <algorithm>
 #include <assert.h>
 
-bool in(const char * values, const char v)
-{
-    while(*values)
-        if (v == *values++)
-            return true;
-    return false;
-}
-
 std::vector<std::string> split(const char *str, const char * separators = " \t", const char * ignore = "")
 {
     std::vector<std::string> result;

@@ -1,4 +1,7 @@
 #include "model.hpp"
+#include "constants.hpp"
+#include "helpers.hpp"
+
 #include <algorithm>
 #include <variant>
 #include <algorithm>
@@ -15,11 +18,6 @@
 #include <QDirIterator>
 
 namespace eptg {
-
-QString PathAppend(const QString & path1, const QString & path2)
-{
-    return QDir::cleanPath(path1 + QDir::separator() + path2);
-}
 
 std::set<std::string> Model::get_common_tags(const std::set<const taggable*> & taggables) const
 {
@@ -65,7 +63,7 @@ std::unique_ptr<Model> Load(const std::string & full_path)
         model->files.insert(base_path.relativeFilePath(it.next()).toStdString(), File());
 
     // read json file
-    QFile file(PathAppend(QString(full_path.c_str()), "eptg.json"));
+    QFile file(PathAppend(QString(full_path.c_str()), PROJECT_FILE_NAME));
     file.open(QIODevice::ReadOnly);
     QByteArray rawData = file.readAll();
     file.close();
@@ -135,11 +133,48 @@ void Save(const std::unique_ptr<Model> & model)
         json_document.insert("tags", tags_json);
     }
 
-    QFile file(PathAppend(QString(model->path.c_str()), "eptg.json"));
+    QFile file(PathAppend(QString(model->path.c_str()), PROJECT_FILE_NAME));
     file.open(QIODevice::WriteOnly);
     file.write(QJsonDocument(json_document).toJson());
     file.flush();
     file.close();
+}
+
+bool Model::absorb(const Model & sub_model)
+{
+    if ( ! PathIsSub(QString::fromStdString(path), QString::fromStdString(sub_model.path)))
+        return false;
+
+    QString sub_model_rel_path = QDir(QString::fromStdString(path)).relativeFilePath(QString::fromStdString(sub_model.path));
+
+    std::set<std::string> tags_used;
+    for (const auto & [rel_path,file] : sub_model.files.collection)
+    {
+        const std::string new_rel_path = PathAppend(sub_model_rel_path, QString::fromStdString(rel_path)).toStdString();
+        files.insert(new_rel_path, eptg::taggable(file));
+        tags_used.insert(file.inherited_tags.begin(), file.inherited_tags.end());
+    }
+
+    std::set<std::string> tags_used_done;
+    while( ! tags_used.empty())
+    {
+        const std::string & tag = *tags_used.begin();
+        const eptg::Tag * tag_in_sub_model = sub_model.tags.find(tag);
+              eptg::Tag & tag_in_new_model =     this->tags.insert(tag, eptg::Tag{});
+
+        if (tag_in_sub_model)
+            for (const std::string & inherited_tag : tag_in_sub_model->inherited_tags)
+            {
+                tag_in_new_model.insert_tag(inherited_tag);
+                if (tags_used_done.find(inherited_tag) == tags_used_done.end())
+                    tags_used.insert(inherited_tag);
+            }
+
+        tags_used_done.insert(tag);
+        tags_used.erase(tag);
+    }
+
+    return true;
 }
 
 bool Model::inherits(const eptg::taggable & taggable, std::set<std::string> tags_to_have) const
@@ -190,23 +225,130 @@ std::set<std::string> Model::get_all_inherited_tags(const std::set<const taggabl
     return result;
 }
 
-//bool MyImage::close(const MyImage & other) const
-//{
-//    for (int x=0 ; x<10 ; x++)
-//        for (int y=0 ; y<10 ; y++)
-//                 if (std::get<0>(quadrant_colors[x][y]) - std::get<0>(other.quadrant_colors[x][y]) > 10)
-//                return false;
-//            else if (std::get<0>(quadrant_colors[x][y]) - std::get<0>(other.quadrant_colors[x][y]) < -10)
-//                return false;
-//             else if (std::get<1>(quadrant_colors[x][y]) - std::get<1>(other.quadrant_colors[x][y]) > 10)
-//                 return false;
-//             else if (std::get<1>(quadrant_colors[x][y]) - std::get<1>(other.quadrant_colors[x][y]) < -10)
-//                 return false;
-//             else if (std::get<2>(quadrant_colors[x][y]) - std::get<2>(other.quadrant_colors[x][y]) > 10)
-//                 return false;
-//             else if (std::get<2>(quadrant_colors[x][y]) - std::get<2>(other.quadrant_colors[x][y]) < -10)
-//                 return false;
-//    return true;
-//}
+std::vector<std::vector<std::string>> Model::_get_tag_paths(const std::string & tag, const std::string & top_tag) const
+{
+    std::vector<std::vector<std::string>> result;
+
+    const taggable * t = tags.find(tag);
+    if ( ! t)
+        return result;
+
+    if (t->has_tag(top_tag))
+        return {{}};
+
+    for (const std::string & tag : t->inherited_tags)
+        for (std::vector<std::string> & path : _get_tag_paths(tag, top_tag))
+        {
+            path.insert(path.begin(), tag);
+            result.push_back(std::move(path));
+        }
+    return result;
+}
+
+std::vector<std::vector<std::string>> Model::get_tag_paths(const std::string & rel_path, const std::string & top_tag) const
+{
+    std::vector<std::vector<std::string>> result;
+
+    const taggable * f = files.find(rel_path);
+    if ( ! f)
+        return result;
+
+    if (f->has_tag(top_tag))
+        return {};
+
+    for (const std::string & tag : f->inherited_tags)
+        for (std::vector<std::string> & path : _get_tag_paths(tag, top_tag))
+        {
+            path.insert(path.begin(), tag);
+            result.push_back(std::move(path));
+        }
+    return result;
+}
+
+std::vector<std::vector<std::string>> get_similar(const eptg::Model & model, int allowed_difference, std::function<bool(size_t,size_t)> callback)
+{
+    std::vector<std::vector<std::string>> result;
+
+    size_t count = 0;
+    std::vector<std::tuple<std::string, QImage, double, bool>> thumbs;
+
+    // read all images, resize, calculate avg luminosity
+    for (auto it=model.files.collection.begin(),end=model.files.collection.end() ; it!=end ; ++it)
+    {
+        QString full_path = PathAppend(QString::fromStdString(model.path), QString::fromStdString(it->first));
+        QImage thumb = QImage(full_path).scaled(8, 8);
+        double grad = 0;
+        for (int y=0 ; y<8 ; y++)
+            for (int x=0 ; x<8 ; x++)
+            {
+                QRgb rgb = thumb.pixel(x, y);
+                grad += qRed  (rgb);
+                grad += qGreen(rgb);
+                grad += qBlue (rgb);
+            }
+        grad /= 3*8*8;
+        thumbs.emplace_back(it->first, std::move(thumb), grad, false);
+
+        count++;
+        if ( ! callback(count, model.files.size()))
+            return result;
+    }
+
+    // sort by
+    std::sort(thumbs.begin(), thumbs.end(),
+        [](const decltype(thumbs)::value_type & left, const decltype(thumbs)::value_type & right)
+            {
+                return std::get<2>(left) < std::get<2>(right);
+            }
+        );
+
+    for (auto it=thumbs.begin(),end=thumbs.end() ; it!=end ; ++it)
+    {
+        if (std::get<3>(*it)) // already in a set
+            continue;
+        bool found_similar = false;
+        auto grad = std::get<2>(*it);
+        auto rel_path = std::get<0>(*it);
+        for (auto it2=std::make_reverse_iterator(it),end2=thumbs.rend() ; it2!=end2 ; it2++)
+        {
+            if (std::get<3>(*it2)) // already in a set
+                continue;
+            if (std::get<2>(*it2) < grad-3)
+                break;
+            if (images_close(std::get<1>(*it), std::get<1>(*it2), allowed_difference))
+            {
+                if ( ! found_similar)
+                {
+                    result.push_back({});
+                    result.back().push_back(rel_path);
+                    found_similar = true;
+                    std::get<3>(*it) = true;
+                }
+                std::get<3>(*it2) = true;
+                result.back().push_back(std::get<0>(*it2));
+            }
+        }
+        for (auto it2=std::next(it),end2=thumbs.end() ; it2!=end2 ; it2++)
+        {
+            if (std::get<3>(*it2)) // already in a set
+                continue;
+            if (std::get<2>(*it2) > grad+3)
+                break;
+            if (images_close(std::get<1>(*it), std::get<1>(*it2), allowed_difference))
+            {
+                if ( ! found_similar)
+                {
+                    result.push_back({});
+                    result.back().push_back(rel_path);
+                    found_similar = true;
+                    std::get<3>(*it) = true;
+                }
+                std::get<3>(*it2) = true;
+                result.back().push_back(std::get<0>(*it2));
+            }
+        }
+    }
+    return result;
+}
 
 } // namespace

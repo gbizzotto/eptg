@@ -22,6 +22,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void ShowSimilarGroups(const std::vector<std::vector<std::string>> & groups);
+    inline const Ui::MainWindow* Getui() const { return ui; }
 protected:
     void showEvent(QShowEvent *ev);
 private:
@@ -33,6 +34,7 @@ private slots:
     bool OpenContainingFolder(const QStringList & paths) const;
     void GotoFirstUntagged();
     void PreviewPictures(const std::set<std::string> & selected_items_text);
+    void adjust_ui_for_model();
 
     void on_menuOpenRecent(QAction *action);
 
@@ -65,6 +67,10 @@ private slots:
     void on_menuProcess_triggered();
 
     void on_previewCheckBox_toggled(bool checked);
+
+    void on_menuCopyFiles_triggered();
+
+    void on_menuMoveFiles_triggered();
 
 private:
     std::unique_ptr<eptg::Model> model;

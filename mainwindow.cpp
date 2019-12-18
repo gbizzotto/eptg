@@ -5,6 +5,7 @@
 #include "ui_mainwindow.h"
 #include "dialog_find_similar.h"
 #include "dialog_process.h"
+#include "dialog_copy_move.h"
 #include "constants.hpp"
 #include <QFileDialog>
 #include <QKeyEvent>
@@ -20,7 +21,7 @@
 #include <QRgb>
 #include <QThread>
 
-#include <helpers.hpp>
+#include "helpers.hpp"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -157,7 +158,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 
 void MainWindow::on_menuOpenFolder_triggered()
 {
-    QString pathName = QFileDialog::getExistingDirectory(this, "Select folder", "~");
+    QString pathName = QFileDialog::getExistingDirectory(this, "Select folder", QDir::homePath());
     if (pathName == "")
         return;
 
@@ -167,6 +168,23 @@ void MainWindow::on_menuOpenFolder_triggered()
 void MainWindow::open(const QString & pathName)
 {
     model = eptg::Load(pathName.toStdString());
+
+    adjust_ui_for_model();
+
+    // save recent
+    QSettings settings("ttt", "eptg");
+    settings.beginWriteArray("recents");
+    for(int i = 0 ; i < ui->menuOpenRecent->actions().size() ; i++)
+    {
+        settings.setArrayIndex(i);
+        settings.setValue("recent", ui->menuOpenRecent->actions()[i]->text());
+    }
+    settings.endArray();
+}
+
+void MainWindow::adjust_ui_for_model()
+{
+    const QString pathName = QString::fromStdString(model->path);
 
     ui->fillList->clear();
     for (const auto & p : model->files.collection)
@@ -190,7 +208,7 @@ void MainWindow::open(const QString & pathName)
         ui->fillList->setCurrentRow(0);
     this->setWindowTitle("eptgQt - " + pathName);
 
-    ui->searchEdit->setFocus();
+    ui->tagsEdit->setFocus();
 
     // set recent menu
     if (ui->menuOpenRecent->actions().size() == 0)
@@ -209,16 +227,6 @@ void MainWindow::open(const QString & pathName)
         while (ui->menuOpenRecent->actions().size() > MAX_RECENT)
             ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[MAX_RECENT]);
     }
-
-    // save recent
-    QSettings settings("ttt", "eptg");
-    settings.beginWriteArray("recents");
-    for(int i = 0 ; i < ui->menuOpenRecent->actions().size() ; i++)
-    {
-        settings.setArrayIndex(i);
-        settings.setValue("recent", ui->menuOpenRecent->actions()[i]->text());
-    }
-    settings.endArray();
 
     // known tags for autocompletion
     known_tags.clear();
@@ -252,6 +260,10 @@ void MainWindow::open(const QString & pathName)
     if (ui->tabWidget->currentIndex() == 1)
         refresh_tag_list();
     ui->tagList->sortItems(1, Qt::SortOrder::DescendingOrder);
+
+
+
+
 }
 
 void MainWindow::refresh_tag_list()
@@ -339,7 +351,7 @@ void MainWindow::saveCurrentFileTags()
                 // update known_tags
                 QString qstr_t = QString::fromStdString(t);
                 auto it = known_tags.lower_bound(qstr_t);
-                if (it != known_tags.end() || it->first != qstr_t)
+                if (it == known_tags.end() || it->first != qstr_t)
                     it = known_tags.insert(std::make_pair(qstr_t, 0)).first;
                 it->second++;
             }
@@ -525,7 +537,7 @@ void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_te
             ui->fillPreview->setPixmap(image);
         statusSizeLabel->setText(QString::number(image.width()) + " x " + QString::number(image.height()));
     }
-    else if (selected_items_text.size() > 0)
+    else if (selected_items_text.size() <= 64)
     {
         QPixmap image_result(ui->fillPreview->width(), ui->fillPreview->height());
         image_result.fill(Qt::transparent);
@@ -549,6 +561,8 @@ void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_te
         statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
         ui->fillPreview->setPixmap(image_result);
     }
+    else
+        ui->fillPreview->setText("Too many files selected.");
 }
 
 void MainWindow::on_fillList_itemSelectionChanged()
@@ -720,4 +734,24 @@ void MainWindow::on_previewCheckBox_toggled(bool checked)
         this->PreviewPictures(selected_items_text);
     else
         ui->fillPreview->setPixmap(QPixmap());
+}
+
+void MainWindow::on_menuCopyFiles_triggered()
+{
+    std::unique_ptr<CopyMoveDialog> copy_move_wizard(new CopyMoveDialog(*model, this, false));
+    copy_move_wizard->exec();
+    if ( ! PathIsSub(QString::fromStdString(model->path), copy_move_wizard->preview->dest))
+        ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
+    else
+        adjust_ui_for_model();
+}
+
+void MainWindow::on_menuMoveFiles_triggered()
+{
+    std::unique_ptr<CopyMoveDialog> copy_move_wizard(new CopyMoveDialog(*model, this, true));
+    copy_move_wizard->exec();
+    if ( ! PathIsSub(QString::fromStdString(model->path), copy_move_wizard->preview->dest))
+        ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
+
+    adjust_ui_for_model();
 }

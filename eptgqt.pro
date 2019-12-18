@@ -15,6 +15,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    dialog_copy_move.cpp \
     dialog_find_similar.cpp \
     dialog_process.cpp \
     helpers.cpp \
@@ -27,6 +28,7 @@ SOURCES += \
 
 HEADERS += \
     constants.hpp \
+    dialog_copy_move.h \
     dialog_find_similar.h \
     dialog_process.h \
     helpers.hpp \
@@ -37,6 +39,7 @@ HEADERS += \
     search.hpp
 
 FORMS += \
+    copy_move_wizard.ui \
     find_similar.ui \
     mainwindow.ui \
     process.ui

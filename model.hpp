@@ -13,6 +13,7 @@
 #include <QImage>
 
 #include "search.hpp"
+#include "helpers.hpp"
 
 namespace eptg {
 
@@ -59,6 +60,7 @@ struct taggable_collection
     T * find(const std::string & id) { return const_cast<T*>(const_cast<const taggable_collection<T>*>(this)->find(id)); }
     T & insert(const std::string & id, T && t) { return collection.insert(std::make_pair(id, t)).first->second; }
     bool has(const std::string & id) const { return collection.find(id) != collection.end(); }
+    bool erase(const std::string & it) { return collection.erase(it)>0; }
     std::map<std::string,T> get_tagged_with_all(const std::set<std::string> & tags) const
     {
         std::map<std::string,T> result;
@@ -93,6 +95,7 @@ struct Model
         : path(full_path)
     {}
 
+    bool absorb(const Model & sub_model);
     template<typename C>
     std::set<std::string> get_descendent_tags(const C & p_tags) const
     {
@@ -107,10 +110,14 @@ struct Model
     bool inherits(const eptg::taggable & taggable, std::set<std::string> tags_to_have) const;
     std::vector<std::string> search(const SearchNode & search_node) const;
     std::set<std::string> get_all_inherited_tags(const std::set<const taggable*> & taggables) const;
+    std::vector<std::vector<std::string>> _get_tag_paths(const std::string & tag, const std::string & top_tag) const;
+    std::vector<std::vector<std::string>> get_tag_paths(const std::string & rel_path, const std::string & top_tag) const;
 };
 
 std::unique_ptr<Model> Load(const std::string & full_path);
 void Save(const std::unique_ptr<Model> & model);
+
+std::vector<std::vector<std::string>> get_similar(const eptg::Model & model, int allowed_difference, std::function<bool(size_t,size_t)> callback);
 
 } // namespace
 
