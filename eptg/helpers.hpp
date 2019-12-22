@@ -7,8 +7,25 @@
 #include <functional>
 #include <type_traits>
 
+#if __has_include(<filesystem>)
+#   include <filesystem>
+#   define has_stdfs 1
+    namespace stdfs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#   include <experimental/filesystem>
+#   define has_stdfs 1
+    namespace stdfs = std::experimental::filesystem;
+#else
+#   define has_stdfs 0
+#   include <QStringList>
+#   include <QDir>
+#   include <QDirIterator>
+#endif
+
 #include <QImage>
 #include <QTableWidgetItem>
+
+#include "eptg/path.hpp"
 
 template<class Container, class T>
 auto find_impl(Container& c, const T& value, int) -> decltype(c.find(value)){
@@ -168,5 +185,45 @@ std::vector<std::string> split(const std::string & s, const char * separators = 
 std::vector<    QString> split(const     QString & s, const char * separators = " \t", const char * ignore = "");
 std::string to_lower(const std::string & str);
     QString to_lower(const     QString & str);
+
+template<typename STR>
+STR str_to(const QString & str)
+{
+    return str.toStdString().c_str();
+}
+template<typename STR>
+STR str_to(const std::string & str)
+{
+    return str.c_str();
+}
+
+template<>     QString str_to<    QString>(const std::string & str);
+template<>     QString str_to<    QString>(const     QString & str);
+template<> std::string str_to<std::string>(const std::string & str);
+template<> std::string str_to<std::string>(const     QString & str);
+
+
+template<typename STR>
+std::set<STR> sweep(const STR & full_path, const std::set<STR> & extensions)
+{
+    std::set<STR> result;
+
+#if has_stdfs
+    for(const auto & p: stdfs::recursive_directory_iterator(str_to<std::string>(full_path)))
+        if (stdfs::is_regular_file(p))
+            if (in(extensions, to_lower(str_to<STR>(substring(p.path().extension(), 1)))))
+                result.insert(str_to<STR>(path::relative(full_path, str_to<STR>(p.path()))));
+#else
+    decltype(extensions) extensions_for_qt;
+    std::transform(extensions.begin(), extensions.end(), std::inserter(extensions_for_qt), [](const STR & str){ return STR("*.").append(str); });
+    QDir base_path(full_path);
+    QStringList filters = {"*.jpg", "*.jpeg", "*.png", "*.gif"};
+    QDirIterator it(full_path, filters, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext())
+        result.insert(str_to<STR>(it.next()));
+#endif
+
+    return result;
+}
 
 #endif // HELPERS_HPP

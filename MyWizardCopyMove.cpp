@@ -41,13 +41,13 @@ void MyWizardCopyMove::on_destFolderLineEdit_textChanged(const QString &arg1)
 {
     QStringList messages;
 
-    if ( ! Path::is_sub(project.path, arg1))
+    if ( ! path::is_sub(project.path, arg1))
     {
         messages += "- <font color=red>"
                     "Warning: Moving files out of this project.<br/>"
                     "New project will be added to menu File>Open Recent."
                     "</font>";
-        if (Path::parent_has(arg1, QString(PROJECT_FILE_NAME)))
+        if (path::parent_has(arg1, QString(PROJECT_FILE_NAME)))
             messages += "- <font color=black>"
                         "Warning: Moving files to an existing project.<br/>"
                         "Destination project will be updated to include the new files."
@@ -84,7 +84,7 @@ void MyWizardCopyMove::display_preview()
 
     QStringList preview_files;
     for (const QString & new_path : keys(preview->files))
-        preview_files.append(Path::append(preview->dest, new_path));
+        preview_files.append(path::append(preview->dest, new_path));
     this->previewBrowser->setText(preview_files.join("<br/>"));
 }
 
@@ -151,14 +151,14 @@ void MyWizardCopyMove::on_CopyMoveWizard_finished(int result)
     auto dest_project = eptg::load(preview->dest);
     std::set<QString> tags_used;
 
-    bool is_internal = Path::is_sub(project.path, preview->dest);
+    bool is_internal = path::is_sub(project.path, preview->dest);
 
     for (const auto & filenames_tuple : preview->files)
     {
         QString new_rel_path = std::get<0>(filenames_tuple);
         QString old_rel_path = std::get<1>(filenames_tuple);
 
-        QFileInfo dest_info(Path::append(preview->dest, new_rel_path));
+        QFileInfo dest_info(path::append(preview->dest, new_rel_path));
         QDir dest_dir(dest_info.path());
 
         if ( ! dest_dir.exists())
@@ -169,11 +169,11 @@ void MyWizardCopyMove::on_CopyMoveWizard_finished(int result)
             }
 
         // actual files
-        QFile::copy(Path::append(project.path , old_rel_path)
-                   ,Path::append(preview->dest, new_rel_path)
+        QFile::copy(path::append(project.path , old_rel_path)
+                   ,path::append(preview->dest, new_rel_path)
                    );
         if (preview->is_move)
-            QFile(Path::append(project.path, old_rel_path)).remove();
+            QFile(path::append(project.path, old_rel_path)).remove();
 
         // files in Project
         eptg::File<QString> & new_file = dest_project->files.insert(new_rel_path, eptg::File<QString>{});

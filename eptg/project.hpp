@@ -9,18 +9,6 @@
 #include <algorithm>
 #include <variant>
 
-#if __has_include(<filesystem>)
-#   include <filesystem>
-#   define has_stdfs 1
-    namespace stdfs = std::filesystem;
-#elif __has_include(<experimental/filesystem>)
-#   include <experimental/filesystem>
-#   define has_stdfs 1
-    namespace stdfs = std::experimental::filesystem;
-#else
-#   define has_stdfs 0
-#endif
-
 #include <QImage>
 #include <QFile>
 #include <QJsonObject>
@@ -119,7 +107,7 @@ struct Project
 
     bool absorb(const Project & sub_project)
     {
-        if ( ! Path::is_sub(path, sub_project.path))
+        if ( ! path::is_sub(path, sub_project.path))
             return false;
 
         STR sub_project_rel_path = QDir(path).relativeFilePath(sub_project.path);
@@ -127,7 +115,7 @@ struct Project
         std::set<STR> tags_used;
         for (const auto & [rel_path,file] : sub_project.files.collection)
         {
-            const STR new_rel_path = Path::append(sub_project_rel_path, rel_path);
+            const STR new_rel_path = path::append(sub_project_rel_path, rel_path);
             files.insert(new_rel_path, eptg::taggable(file));
             tags_used.insert(file.inherited_tags.begin(), file.inherited_tags.end());
         }
@@ -285,14 +273,19 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
     std::unique_ptr<Project<STR>> project = std::make_unique<Project<STR>>(full_path);
 
     // sweep directory
-    QDir base_path(full_path);
-    QStringList filters = {"*.jpg", "*.jpeg", "*.png", "*.gif"};
-    QDirIterator it(full_path, filters, QDir::Files, QDirIterator::Subdirectories);
-    while (it.hasNext())
-        project->files.insert(base_path.relativeFilePath(it.next()), File<STR>());
+    if ( ! stdfs::exists(str_to<std::string>(full_path)))
+        return project;
+    for (const STR & str : sweep(full_path, std::set<STR>{"jpg", "jpeg", "png", "gif"}))
+        project->files.insert(str, File<STR>());
+
+    //QDir base_path(full_path);
+    //QStringList filters = {"*.jpg", "*.jpeg", "*.png", "*.gif"};
+    //QDirIterator it(full_path, filters, QDir::Files, QDirIterator::Subdirectories);
+    //while (it.hasNext())
+    //    project->files.insert(base_path.relativeFilePath(it.next()), File<STR>());
 
     // read json file
-    QFile file(Path::append(full_path, PROJECT_FILE_NAME));
+    QFile file(path::append(full_path, PROJECT_FILE_NAME));
     file.open(QIODevice::ReadOnly);
     QByteArray rawData = file.readAll();
     file.close();
@@ -363,7 +356,7 @@ void save(const std::unique_ptr<Project<STR>> & project)
         json_document.insert("tags", tags_json);
     }
 
-    QFile file(Path::append(project->path, PROJECT_FILE_NAME));
+    QFile file(path::append(project->path, PROJECT_FILE_NAME));
     file.open(QIODevice::WriteOnly);
     file.write(QJsonDocument(json_document).toJson());
     file.flush();
@@ -381,8 +374,8 @@ std::vector<std::vector<STR>> get_similar(const Project<STR> & project, int allo
     // read all images, resize, calculate avg luminosity
     for (auto it=project.files.collection.begin(),end=project.files.collection.end() ; it!=end ; ++it)
     {
-        QString full_path = Path::append(project.path, it->first);
-        QImage thumb = QImage(full_path).scaled(8, 8);
+        STR full_path = path::append(project.path, it->first);
+        QImage thumb = QImage(str_to<QString>(full_path)).scaled(8, 8);
         double grad = 0;
         for (int y=0 ; y<8 ; y++)
             for (int x=0 ; x<8 ; x++)

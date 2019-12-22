@@ -96,3 +96,24 @@ QString to_lower(const QString & str)
 {
     return str.toLower();
 }
+
+template<>
+QString str_to<QString>(const std::string & str)
+{
+    return QString::fromStdString(str);
+}
+template<>
+QString str_to<QString>(const QString & str)
+{
+    return str;
+}
+template<>
+std::string str_to<std::string>(const std::string & str)
+{
+    return str;
+}
+template<>
+std::string str_to<std::string>(const QString & str)
+{
+    return str.toStdString();
+}

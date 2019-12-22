@@ -9,5 +9,5 @@ MyWidgetLineEdit::MyWidgetLineEdit(QWidget *parent)
 void MyWidgetLineEdit::focusInEvent(QFocusEvent * e)
 {
     QLineEdit::focusInEvent(e);
-    setCursorPosition(text().length());
+    setCursorPosition(text().size());
 }

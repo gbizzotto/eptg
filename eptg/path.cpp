@@ -4,7 +4,7 @@
 
 #include <QDir>
 
-namespace Path {
+namespace path {
 
 QString append(const QString & path1, const QString & path2)
 {
@@ -25,6 +25,15 @@ QString up(QString path)
         return "";
     path.truncate(idx);
     return path;
+}
+QString relative(const QString & base, const QString & sub)
+{
+    if ( ! is_sub(base, sub))
+        return "";
+    QString base_abs = QDir(base).absolutePath();
+    if ( ! base_abs.endsWith('/'))
+        base_abs.append('/');
+    return QDir(sub).absolutePath().remove(0, base_abs.size());
 }
 
 std::string append(std::string path1, const std::string & path2)
@@ -60,6 +69,18 @@ std::string up(std::string path)
     if (pos == std::string::npos)
         return "";
     return path.substr(0, pos);
+}
+std::string relative(std::string base, const std::string & sub)
+{
+    if (base.empty())
+        return sub;
+    if (base.back() != PATH_SEPARATOR_CHAR)
+        base.append(PATH_SEPARATOR_STR);
+    if (sub.size() < base.size())
+        return "";
+    if (sub.substr(0, base.size()) != base)
+        return "";
+    return sub.substr(base.size());
 }
 
 } // namespace

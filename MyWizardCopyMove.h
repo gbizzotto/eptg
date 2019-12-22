@@ -38,7 +38,7 @@ struct CopyMoveData
     inline CopyMoveData(const eptg::Project<QString> & project, bool move, bool selected, QString dest, TreeType tree, bool overwrite, QString tag="")
         : is_move(move)
         , is_selected(selected)
-        , dest(QDir::cleanPath(QDir(dest).isRelative() ? Path::append(project.path, dest) : std::move(dest)))
+        , dest(QDir::cleanPath(QDir(dest).isRelative() ? path::append(project.path, dest) : std::move(dest)))
         , tree_type(tree)
         , overwrite(overwrite)
         , tag(std::move(tag))
@@ -103,14 +103,14 @@ struct CopyMoveData
             return get_preview_flat(rel_path);
         else
         {
-            return Path::append(
+            return path::append(
                     std::accumulate(paths[0].rbegin(), paths[0].rend(), QString(""),
                         [](const QString & result, const QString & folder)
                             {
                                 if (result == "")
                                     return folder;
                                 else
-                                    return Path::append(result, folder);
+                                    return path::append(result, folder);
                             }
                         ),
                     QFileInfo(rel_path).fileName()
@@ -123,11 +123,11 @@ struct CopyMoveData
         QFileInfo info(rel_path);
         QFileInfo info_new(rel_path);
         int i = 2;
-        while(QFileInfo(Path::append(dest, info_new.fileName())).exists() || in(files, info_new.fileName()))
+        while(QFileInfo(path::append(dest, info_new.fileName())).exists() || in(files, info_new.fileName()))
         {
             QString new_rel_path = info.baseName() + " (" + QString::number(i) + ")." + info.suffix();
             if (info.path() != ".")
-                new_rel_path = Path::append(info.path(), new_rel_path);
+                new_rel_path = path::append(info.path(), new_rel_path);
             info_new = QFileInfo(new_rel_path);
             i++;
             name_collision_count++;
@@ -136,7 +136,7 @@ struct CopyMoveData
     }
     inline void count_for_duplicity(const QString & new_rel_path)
     {
-        if (QFileInfo(Path::append(dest, new_rel_path)).exists() || in(files, new_rel_path))
+        if (QFileInfo(path::append(dest, new_rel_path)).exists() || in(files, new_rel_path))
             name_collision_count++;
     }
 };

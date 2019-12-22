@@ -45,8 +45,8 @@ QStringList MyDialogProcess::get_commands() const
         if (QThread::currentThread()->isInterruptionRequested())
             return QStringList();
 
-        QFileInfo info(Path::append(base_path, rel_path));
-        const QString full_path = Path::append(base_path, rel_path);
+        QFileInfo info(path::append(base_path, rel_path));
+        const QString full_path = path::append(base_path, rel_path);
 
         auto position_it = positions.begin();
         for (auto command : base_commands)

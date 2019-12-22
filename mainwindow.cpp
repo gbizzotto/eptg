@@ -523,7 +523,7 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
         ui->fillPreview->setPixmap(QPixmap());
     else if (selected_items_text.size() == 1)
     {
-        auto full_path = Path::append(project->path, *selected_items_text.begin());
+        auto full_path = path::append(project->path, *selected_items_text.begin());
         QPixmap image(full_path);
         if (image.width() > ui->fillPreview->width() || image.height() > ui->fillPreview->height())
             ui->fillPreview->setPixmap(image.scaled(ui->fillPreview->width(), ui->fillPreview->height(), Qt::AspectRatioMode::KeepAspectRatio));
@@ -543,7 +543,7 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
         for (int r = 0 ; r<rows ; ++r)
             for (int c = 0 ; c<cols && it!=selected_items_text.end() ; ++c,++it)
             {
-                auto full_path = Path::append(project->path, *it);
+                auto full_path = path::append(project->path, *it);
                 QPixmap image(full_path);
                 if (image.width() > w || image.height() > h)
                     image = image.scaled(w-IMG_BORDER, h-IMG_BORDER, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
@@ -568,7 +568,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
         ui->fullpathLabel->setText("");
     else if (selected_names.size() == 1)
     {
-        ui->fullpathLabel->setText(Path::append(project->path, *selected_names.begin()));
+        ui->fullpathLabel->setText(path::append(project->path, *selected_names.begin()));
         int w = ui->fullpathLabel->fontMetrics().width(ui->fullpathLabel->text());
         if (w <= ui->fullpathLabel->width() - 8)
             ui->fullpathLabel->setAlignment(Qt::AlignLeft);
@@ -648,15 +648,15 @@ void MainWindow::on_menuOpenContainingFolder_triggered()
 
 //    QStringList qpaths;
 //    for (const QString & rel_path : titles)
-//        qpaths.append(Path::append(project->path, rel_path));
+//        qpaths.append(path::append(project->path, rel_path));
 
-    if (!open_containing_folder(QStringList(Path::append(project->path, *selected_names.begin()))))
+    if (!open_containing_folder(QStringList(path::append(project->path, *selected_names.begin()))))
         ui->statusbar->showMessage("Can't open file browser.", 5000);
 }
 
 void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
 {
-    QString path = Path::append(project->path, ui->fillList->item(index.row())->text());
+    QString path = path::append(project->path, ui->fillList->item(index.row())->text());
 
     if (!open_containing_folder(QStringList(path)))
         ui->statusbar->showMessage("Can't open file browser.", 5000);
@@ -732,7 +732,7 @@ void MainWindow::on_menuCopyFiles_triggered()
 {
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, false));
     copy_move_wizard->exec();
-    if ( ! Path::is_sub(project->path, copy_move_wizard->preview->dest))
+    if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
         ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
     else
         adjust_ui_for_project();
@@ -742,7 +742,7 @@ void MainWindow::on_menuMoveFiles_triggered()
 {
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, true));
     copy_move_wizard->exec();
-    if ( ! Path::is_sub(project->path, copy_move_wizard->preview->dest))
+    if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
         ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
 
     adjust_ui_for_project();
