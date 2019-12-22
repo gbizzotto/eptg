@@ -6,7 +6,7 @@
 #include <QStringList>
 #include <QThread>
 #include "ui_process.h"
-#include "model.hpp"
+#include "project.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Process; }
@@ -17,14 +17,14 @@ class ProcessDialog : public QDialog, public Ui::Process
     Q_OBJECT
 
 private:
-    const eptg::Model & model;
+    const eptg::Project & project;
     std::set<std::string> rel_paths;
     std::atomic_bool go_on;
 
     QStringList get_commands() const;
 
 public:
-    ProcessDialog(const eptg::Model & model, const std::set<std::string> & rel_paths, QWidget * parent);
+    ProcessDialog(const eptg::Project & project, const std::set<std::string> & rel_paths, QWidget * parent);
 private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_plainTextEdit_textChanged();

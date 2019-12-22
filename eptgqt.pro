@@ -21,9 +21,9 @@ SOURCES += \
     helpers.cpp \
     main.cpp \
     mainwindow.cpp \
-    model.cpp \
     mylineedit.cpp \
     mytablewidget.cpp \
+    project.cpp \
     search.cpp
 
 HEADERS += \
@@ -33,9 +33,9 @@ HEADERS += \
     dialog_process.h \
     helpers.hpp \
     mainwindow.h \
-    model.hpp \
     mylineedit.h \
     mytablewidget.h \
+    project.hpp \
     search.hpp
 
 FORMS += \

@@ -1,5 +1,5 @@
-#ifndef MODEL_HPP
-#define MODEL_HPP
+#ifndef PROJECT_HPP
+#define PROJECT_HPP
 
 #include <vector>
 #include <string>
@@ -85,17 +85,17 @@ struct taggable_collection
     }
 };
 
-struct Model
+struct Project
 {
     std::string path;
     taggable_collection<File> files;
     taggable_collection<Tag > tags ;
 
-    inline Model(const std::string & full_path)
+    inline Project(const std::string & full_path)
         : path(full_path)
     {}
 
-    bool absorb(const Model & sub_model);
+    bool absorb(const Project & sub_project);
     template<typename C>
     std::set<std::string> get_descendent_tags(const C & p_tags) const
     {
@@ -114,11 +114,11 @@ struct Model
     std::vector<std::vector<std::string>> get_tag_paths(const std::string & rel_path, const std::string & top_tag) const;
 };
 
-std::unique_ptr<Model> Load(const std::string & full_path);
-void Save(const std::unique_ptr<Model> & model);
+std::unique_ptr<Project> Load(const std::string & full_path);
+void Save(const std::unique_ptr<Project> & project);
 
-std::vector<std::vector<std::string>> get_similar(const eptg::Model & model, int allowed_difference, std::function<bool(size_t,size_t)> callback);
+std::vector<std::vector<std::string>> get_similar(const eptg::Project & project, int allowed_difference, std::function<bool(size_t,size_t)> callback);
 
 } // namespace
 
-#endif // MODEL_HPP
+#endif // include guard

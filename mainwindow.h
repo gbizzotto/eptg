@@ -7,7 +7,7 @@
 #include <QLineEdit>
 #include <QDialog>
 #include <memory>
-#include "model.hpp"
+#include "project.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -34,7 +34,7 @@ private slots:
     bool OpenContainingFolder(const QStringList & paths) const;
     void GotoFirstUntagged();
     void PreviewPictures(const std::set<std::string> & selected_items_text);
-    void adjust_ui_for_model();
+    void adjust_ui_for_project();
 
     void on_menuOpenRecent(QAction *action);
 
@@ -73,7 +73,7 @@ private slots:
     void on_menuMoveFiles_triggered();
 
 private:
-    std::unique_ptr<eptg::Model> model;
+    std::unique_ptr<eptg::Project> project;
     Ui::MainWindow *ui;
     QLabel *statusCountLabel;
     QLabel *statusPercentTaggedLabel;

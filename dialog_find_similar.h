@@ -4,7 +4,7 @@
 #include <atomic>
 #include <QDialog>
 #include "ui_find_similar.h"
-#include "model.hpp"
+#include "project.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class FindSimilar; }
@@ -15,11 +15,11 @@ class FindSimilarDialog : public QDialog, public Ui::FindSimilar
     Q_OBJECT
 
 private:
-    const eptg::Model & model;
+    const eptg::Project & project;
     std::atomic_bool go_on;
 
 public:
-    FindSimilarDialog(const eptg::Model & model, QWidget * parent);
+    FindSimilarDialog(const eptg::Project & project, QWidget * parent);
 private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_FindSimilar_finished(int result);

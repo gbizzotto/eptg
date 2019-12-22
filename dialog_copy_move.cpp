@@ -2,15 +2,15 @@
 #include <QFileDialog>
 
 #include "dialog_copy_move.h"
-#include "model.hpp"
+#include "project.hpp"
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "helpers.hpp"
 #include "constants.hpp"
 
-CopyMoveDialog::CopyMoveDialog(eptg::Model & model, QWidget * parent, bool is_move)
+CopyMoveDialog::CopyMoveDialog(eptg::Project & project, QWidget * parent, bool is_move)
     : QWizard(parent)
-    , model(model)
+    , project(project)
     , is_move(is_move)
     , main_window(static_cast<MainWindow*>(parent))
 {
@@ -23,12 +23,12 @@ CopyMoveDialog::CopyMoveDialog(eptg::Model & model, QWidget * parent, bool is_mo
     this->setWindowTitle(is_move ? "Move files" : "Copy files");
     this->selectedFilesRadio->setText(this->selectedFilesRadio->text() + " (" + QString::number(main_window->Getui()->fillList->selectionModel()->selectedIndexes().count()) + ")");
     this->allFilesRadio->setText(this->allFilesRadio->text() + " (" + QString::number(main_window->Getui()->fillList->count()) + ")");
-    this->destFolderLineEdit->setText(QString::fromStdString(model.path));
+    this->destFolderLineEdit->setText(QString::fromStdString(project.path));
 }
 
 void CopyMoveDialog::on_toolButton_clicked()
 {
-    QString default_path_for_open_dialog = QString::fromStdString(model.path);
+    QString default_path_for_open_dialog = QString::fromStdString(project.path);
     if (destFolderLineEdit->text().size() != 0)
         default_path_for_open_dialog = destFolderLineEdit->text();
     QString path = QFileDialog::getExistingDirectory(this, "Select folder", default_path_for_open_dialog);
@@ -40,7 +40,7 @@ void CopyMoveDialog::on_destFolderLineEdit_textChanged(const QString &arg1)
 {
     QStringList messages;
 
-    if ( ! PathIsSub(QString::fromStdString(model.path), arg1))
+    if ( ! PathIsSub(QString::fromStdString(project.path), arg1))
     {
         messages += "- <font color=red>"
                     "Warning: Moving files out of this project.<br/>"
@@ -59,7 +59,7 @@ void CopyMoveDialog::on_destFolderLineEdit_textChanged(const QString &arg1)
 void CopyMoveDialog::make_preview()
 {
     auto new_preview = std::make_unique<CopyMoveData>(
-         model
+         project
         ,is_move
         ,selectedFilesRadio->isChecked()
         ,destFolderLineEdit->text()
@@ -71,7 +71,7 @@ void CopyMoveDialog::make_preview()
     if ( !preview || *preview != *new_preview)
     {
         preview.swap(new_preview);
-        preview->process(keys(model.files.collection)
+        preview->process(keys(project.files.collection)
                         ,GetSelectedRowsTitles(main_window->Getui()->fillList->selectionModel()->selectedIndexes())
                         );
     }
@@ -97,7 +97,7 @@ void CopyMoveDialog::on_CopyMoveWizard_currentIdChanged(int page_id)
         actionLabel->setText(preview->is_move ? "Move files" : "Copy files");
         whatFilesLabel->setText(preview->is_selected
                                ?"Selected files (" + QString::number(main_window->Getui()->fillList->selectionModel()->selectedIndexes().count()) + ")"
-                               :"All files (" + QString::number(model.files.size()) + ")"
+                               :"All files (" + QString::number(project.files.size()) + ")"
                                );
         whereToLabel->setText(preview->dest);
 
@@ -147,10 +147,10 @@ void CopyMoveDialog::on_CopyMoveWizard_finished(int result)
 
     make_preview();
 
-    auto dest_model = eptg::Load(preview->dest.toStdString());
+    auto dest_project = eptg::Load(preview->dest.toStdString());
     std::set<std::string> tags_used;
 
-    bool is_internal = PathIsSub(QString::fromStdString(model.path), preview->dest);
+    bool is_internal = PathIsSub(QString::fromStdString(project.path), preview->dest);
 
     for (const auto & filenames_tuple : preview->files)
     {
@@ -168,17 +168,17 @@ void CopyMoveDialog::on_CopyMoveWizard_finished(int result)
             }
 
         // actual files
-        QFile::copy(PathAppend(QString::fromStdString(model.path), old_rel_path)
-                   ,PathAppend(preview->dest                     , new_rel_path)
+        QFile::copy(PathAppend(QString::fromStdString(project.path), old_rel_path)
+                   ,PathAppend(preview->dest                       , new_rel_path)
                    );
         if (preview->is_move)
-            QFile(PathAppend(QString::fromStdString(model.path), old_rel_path)).remove();
+            QFile(PathAppend(QString::fromStdString(project.path), old_rel_path)).remove();
 
-        // files in Model
-        eptg::File & new_file = dest_model->files.insert(new_rel_path.toStdString(), eptg::File{});
-        const eptg::File * old_file = model.files.find(old_rel_path.toStdString());
+        // files in Project
+        eptg::File & new_file = dest_project->files.insert(new_rel_path.toStdString(), eptg::File{});
+        const eptg::File * old_file = project.files.find(old_rel_path.toStdString());
 
-        // tags in Model
+        // tags in Project
         for (const std::string & tag : old_file->inherited_tags)
         {
             new_file.insert_tag(tag);
@@ -187,7 +187,7 @@ void CopyMoveDialog::on_CopyMoveWizard_finished(int result)
         }
 
         if (is_move)
-            model.files.erase(old_rel_path.toStdString());
+            project.files.erase(old_rel_path.toStdString());
     }
 
     // tag inheritance
@@ -195,13 +195,13 @@ void CopyMoveDialog::on_CopyMoveWizard_finished(int result)
     while( ! tags_used.empty())
     {
         const std::string & tag = *tags_used.begin();
-        const eptg::Tag * tag_in_old_model =      model. tags.find(tag);
-              eptg::Tag & tag_in_new_model = dest_model->tags.insert(tag, eptg::Tag{});
+        const eptg::Tag * tag_in_old_project =      project. tags.find(tag);
+              eptg::Tag & tag_in_new_project = dest_project->tags.insert(tag, eptg::Tag{});
 
-        if (tag_in_old_model)
-            for (const std::string & inherited_tag : tag_in_old_model->inherited_tags)
+        if (tag_in_old_project)
+            for (const std::string & inherited_tag : tag_in_old_project->inherited_tags)
             {
-                tag_in_new_model.insert_tag(inherited_tag);
+                tag_in_new_project.insert_tag(inherited_tag);
                 if (tags_used_done.find(inherited_tag) == tags_used_done.end())
                     tags_used.insert(inherited_tag);
             }
@@ -211,7 +211,7 @@ void CopyMoveDialog::on_CopyMoveWizard_finished(int result)
     }
 
     if (is_internal)
-        model.absorb(*dest_model);
+        project.absorb(*dest_project);
     else
-        eptg::Save(dest_model);
+        eptg::Save(dest_project);
 }

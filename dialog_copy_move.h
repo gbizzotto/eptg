@@ -5,7 +5,7 @@
 #include <QWizard>
 #include <QDir>
 #include "ui_copy_move_wizard.h"
-#include "model.hpp"
+#include "project.hpp"
 #include "mainwindow.h"
 
 QT_BEGIN_NAMESPACE
@@ -28,18 +28,18 @@ struct CopyMoveData
     bool overwrite;
     QString tag;
 
-    const eptg::Model & model;
+    const eptg::Project & project;
     std::map<QString,QString> files;
     size_t name_collision_count;
 
-    inline CopyMoveData(const eptg::Model & model, bool move, bool selected, QString dest, TreeType tree, bool overwrite, QString tag="")
+    inline CopyMoveData(const eptg::Project & project, bool move, bool selected, QString dest, TreeType tree, bool overwrite, QString tag="")
         : is_move(move)
         , is_selected(selected)
-        , dest(QDir::cleanPath(QDir(dest).isRelative() ? PathAppend(QString::fromStdString(model.path), dest) : std::move(dest)))
+        , dest(QDir::cleanPath(QDir(dest).isRelative() ? PathAppend(QString::fromStdString(project.path), dest) : std::move(dest)))
         , tree_type(tree)
         , overwrite(overwrite)
         , tag(std::move(tag))
-        , model(model)
+        , project(project)
         , name_collision_count(0)
     {}
 
@@ -95,7 +95,7 @@ struct CopyMoveData
     }
     inline QString get_preview_tag(const std::string & rel_path, const std::string & top_tag) const
     {
-        std::vector<std::vector<std::string>> paths = model.get_tag_paths(rel_path, top_tag);
+        std::vector<std::vector<std::string>> paths = project.get_tag_paths(rel_path, top_tag);
         if (paths.empty())
             return get_preview_flat(rel_path);
         else
@@ -143,7 +143,7 @@ class CopyMoveDialog : public QWizard, public Ui::CopyMoveWizard
     Q_OBJECT
 
 private:
-    eptg::Model & model;
+    eptg::Project & project;
     bool is_move;
     MainWindow * main_window;
     std::atomic_bool go_on;
@@ -152,7 +152,7 @@ public:
     std::unique_ptr<CopyMoveData> preview;
 
 public:
-    CopyMoveDialog(eptg::Model & model, QWidget * parent, bool is_move);
+    CopyMoveDialog(eptg::Project & project, QWidget * parent, bool is_move);
     QString get_preview_flat    (const std::string & rel_path) const;
     QString get_preview_preserve(const std::string & rel_path) const;
     QString get_preview_tag     (const std::string & rel_path, const std::string & top_tag) const;

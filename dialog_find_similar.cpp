@@ -3,7 +3,7 @@
 
 #include "dialog_find_similar.h"
 #include "ui_find_similar.h"
-#include "model.hpp"
+#include "project.hpp"
 #include "helpers.hpp"
 #include "mainwindow.h"
 
@@ -11,9 +11,9 @@
 #include <QCoreApplication>
 #include <QPushButton>
 
-FindSimilarDialog::FindSimilarDialog(const eptg::Model & model, QWidget * parent)
+FindSimilarDialog::FindSimilarDialog(const eptg::Project & project, QWidget * parent)
     : QDialog(parent)
-    , model(model)
+    , project(project)
 {
     setupUi(this);
     go_on.store(false);
@@ -27,7 +27,7 @@ void FindSimilarDialog::on_buttonBox_clicked(QAbstractButton *button)
         this->progressBar->setEnabled(true);
         this->horizontalSlider->setEnabled(false);
         button->setEnabled(false);
-        std::vector<std::vector<std::string>> groups_of_similars = get_similar(model, this->horizontalSlider->value(),
+        std::vector<std::vector<std::string>> groups_of_similars = get_similar(project, this->horizontalSlider->value(),
             [this](size_t count, size_t total) -> bool
             {
                 this->progressBar->setValue(int(100*count/total));

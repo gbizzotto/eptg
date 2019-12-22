@@ -2,7 +2,7 @@
 
 #include <QApplication>
 
-#include "model.hpp"
+#include "project.hpp"
 
 int main(int argc, char *argv[])
 {

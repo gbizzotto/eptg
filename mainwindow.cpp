@@ -167,9 +167,9 @@ void MainWindow::on_menuOpenFolder_triggered()
 
 void MainWindow::open(const QString & pathName)
 {
-    model = eptg::Load(pathName.toStdString());
+    project = eptg::Load(pathName.toStdString());
 
-    adjust_ui_for_model();
+    adjust_ui_for_project();
 
     // save recent
     QSettings settings("ttt", "eptg");
@@ -182,20 +182,20 @@ void MainWindow::open(const QString & pathName)
     settings.endArray();
 }
 
-void MainWindow::adjust_ui_for_model()
+void MainWindow::adjust_ui_for_project()
 {
-    const QString pathName = QString::fromStdString(model->path);
+    const QString pathName = QString::fromStdString(project->path);
 
     ui->fillList->clear();
-    for (const auto & p : model->files.collection)
+    for (const auto & p : project->files.collection)
         ui->fillList->addItem(QString::fromStdString(p.first));
-    statusCountLabel->setText(QString::number(model->files.size()) + " files");
-    if (model->files.size() == 0)
+    statusCountLabel->setText(QString::number(project->files.size()) + " files");
+    if (project->files.size() == 0)
         statusPercentTaggedLabel->setText("");
     else
     {
         double percent_tagged = 0;
-        percent_tagged = 100.0 * model->files.count_tagged() / model->files.size();
+        percent_tagged = 100.0 * project->files.count_tagged() / project->files.size();
         QString str = QString::number(percent_tagged);
         str.truncate(4);
         if (str.endsWith(","))
@@ -230,7 +230,7 @@ void MainWindow::adjust_ui_for_model()
 
     // known tags for autocompletion
     known_tags.clear();
-    for (const auto & p : model->files.collection)
+    for (const auto & p : project->files.collection)
         for (const std::string & t : p.second.inherited_tags)
         {
             QString tag(t.c_str());
@@ -238,7 +238,7 @@ void MainWindow::adjust_ui_for_model()
                 known_tags[tag] = 0;
             known_tags[tag]++;
         }
-    for (const auto & [key,val] : model->tags.collection)
+    for (const auto & [key,val] : project->tags.collection)
     {
         if (known_tags.find(QString::fromStdString(key)) == known_tags.end())
             known_tags[QString::fromStdString(key)] = 0;
@@ -305,7 +305,7 @@ std::set<T> Added(const std::set<T> & before, const std::set<T> & after)
 
 void MainWindow::saveCurrentFileTags()
 {
-    if ( ! model)
+    if ( ! project)
         return;
 
     auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
@@ -313,7 +313,7 @@ void MainWindow::saveCurrentFileTags()
         return;
 
     std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
-    std::set<std::string> common_tags = model->get_common_tags(model->files.get_all_by_name(titles));
+    std::set<std::string> common_tags = project->get_common_tags(project->files.get_all_by_name(titles));
 
     std::set<std::string> typed_tags;
     for (const QString & tag : ui->tagsEdit->text().split(' '))
@@ -331,7 +331,7 @@ void MainWindow::saveCurrentFileTags()
         auto rel_path = ui->fillList->item(idx)->data(Qt::DisplayRole).toString();
         if (removed_tags.size() > 0)
         {
-            eptg::File * f = model->files.find(rel_path.toStdString());
+            eptg::File * f = project->files.find(rel_path.toStdString());
             if (f != nullptr)
                 for (const std::string & t : removed_tags)
                 {
@@ -344,7 +344,7 @@ void MainWindow::saveCurrentFileTags()
         }
         if (added_tags.size() > 0)
         {
-            eptg::File & f = model->files.insert(rel_path.toStdString(), eptg::File());
+            eptg::File & f = project->files.insert(rel_path.toStdString(), eptg::File());
             for (const std::string & t : added_tags)
             {
                 f.insert_tag(t);
@@ -358,7 +358,7 @@ void MainWindow::saveCurrentFileTags()
         }
     }
 
-    eptg::Save(model);
+    eptg::Save(project);
 }
 
 void MainWindow::on_tagsEdit_returnPressed()
@@ -374,12 +374,12 @@ void MainWindow::on_tagsEdit_returnPressed()
     idx = (idx+1) % ui->fillList->model()->rowCount();
     ui->fillList->setCurrentIndex(ui->fillList->model()->index(idx, 0));
 
-    if (model->files.size() == 0)
+    if (project->files.size() == 0)
         statusPercentTaggedLabel->setText("");
     else
     {
         double percent_tagged = 0;
-        percent_tagged = 100.0 * model->files.count_tagged() / model->files.size();
+        percent_tagged = 100.0 * project->files.count_tagged() / project->files.size();
         QString str = QString::number(percent_tagged);
         str.truncate(4);
         if (str.endsWith(","))
@@ -390,16 +390,16 @@ void MainWindow::on_tagsEdit_returnPressed()
 
 void MainWindow::on_searchEdit_returnPressed()
 {
-    if ( ! model)
+    if ( ! project)
         return;
 
     ui->fillList->clear();
 
-    std::vector<std::string> rel_paths = model->search(SearchNode(ui->searchEdit->text().toStdString()));
+    std::vector<std::string> rel_paths = project->search(SearchNode(ui->searchEdit->text().toStdString()));
     for (const auto & rel_path : rel_paths)
         ui->fillList->addItem(QString::fromStdString(rel_path));
 
-    statusCountLabel->setText(QString::number(rel_paths.size()) + " / " + QString::number(model->files.size()) + " files");
+    statusCountLabel->setText(QString::number(rel_paths.size()) + " / " + QString::number(project->files.size()) + " files");
     ui->fillList->setCurrentIndex(ui->fillList->model()->index(0, 0));
 
     ui->searchEdit->deselect();
@@ -410,7 +410,7 @@ void MainWindow::on_searchEdit_returnPressed()
 
 void MainWindow::saveCurrentTagTags()
 {
-    if ( ! model)
+    if ( ! project)
         return;
 
     auto selected_items = ui->tagList->selectedItems();
@@ -418,7 +418,7 @@ void MainWindow::saveCurrentTagTags()
         return;
 
     std::set<std::string> selected_tag_names = GetSelectedRowsTitles(selected_items);
-    std::set<std::string> common_tags = model->get_common_tags(model->tags.get_all_by_name(selected_tag_names));
+    std::set<std::string> common_tags = project->get_common_tags(project->tags.get_all_by_name(selected_tag_names));
 
     std::set<std::string> typed_tags;
     for (const QString & tag : ui->editTagTags->text().split(' '))
@@ -431,23 +431,23 @@ void MainWindow::saveCurrentTagTags()
     {
         if (removed_tags.size() > 0)
         {
-            eptg::Tag * t = model->tags.find(selected_tag_name);
+            eptg::Tag * t = project->tags.find(selected_tag_name);
             if (t != nullptr)
                 for (const std::string & st : removed_tags)
                     t->erase_tag(st);
         }
         if (added_tags.size() > 0)
         {
-            eptg::Tag & t = model->tags.insert(selected_tag_name, eptg::Tag());
+            eptg::Tag & t = project->tags.insert(selected_tag_name, eptg::Tag());
             for (const std::string & st : added_tags)
             {
                 // let's check that the tag added does not already inherit (is tagged with) the selected tag
                 // if so, it would create circular inheritance, which does not make sense
                 // e.g.: if TZM is a ACTIVISM. Can't make ACTIVISM a TZM.
-                eptg::Tag * candidate = model->tags.find(st);
-                if (candidate != nullptr && candidate == model->tags.find(selected_tag_name))
+                eptg::Tag * candidate = project->tags.find(st);
+                if (candidate != nullptr && candidate == project->tags.find(selected_tag_name))
                     ui->statusbar->showMessage("Can't self-tag.", 10000);
-                else if (candidate != nullptr && model->inherits(*candidate, {selected_tag_name}))
+                else if (candidate != nullptr && project->inherits(*candidate, {selected_tag_name}))
                 {
                     QString msg;
                     msg << "Can't add tag '" << QString::fromStdString(st) << "' to tag " << selected_tag_name << "' because '" << selected_tag_name
@@ -469,7 +469,7 @@ void MainWindow::saveCurrentTagTags()
 
     refresh_tag_list();
 
-    eptg::Save(model);
+    eptg::Save(project);
 }
 void MainWindow::on_editTagTags_returnPressed()
 {
@@ -500,16 +500,16 @@ void MainWindow::on_tagList_itemSelectionChanged()
     // prepare preview
     QStringList hierarchy;
 
-    for ( std::set<std::string> tags = model->get_common_tags(model->tags.get_all_by_name(tag_names))
+    for ( std::set<std::string> tags = project->get_common_tags(project->tags.get_all_by_name(tag_names))
         ; tags.size() > 0
-        ; tags = model->get_common_tags(model->tags.get_all_by_name(tags)) )
+        ; tags = project->get_common_tags(project->tags.get_all_by_name(tags)) )
     {
         hierarchy.insert(0, QStringListFromStd(tags).join(", "));
     }
     hierarchy += QString("<b>").append(QStringListFromStd(tag_names).join(", ")).append("</b>");
-    for ( std::set<std::string> tags = model->get_descendent_tags(tag_names)
+    for ( std::set<std::string> tags = project->get_descendent_tags(tag_names)
         ; tags.size() > 0
-        ; tags = model->get_descendent_tags(tags) )
+        ; tags = project->get_descendent_tags(tags) )
     {
         hierarchy += QStringListFromStd(tags).join(", ");
     }
@@ -517,8 +517,8 @@ void MainWindow::on_tagList_itemSelectionChanged()
     ui->tagTreePreview->setText(hierarchy.join("<br/>↑<br/>"));
 
     // set tag line into edit
-    std::set<const eptg::taggable*> selected_tags = model->tags.get_all_by_name(tag_names);
-    QStringList common_tags = QStringListFromStd(model->get_common_tags(selected_tags));
+    std::set<const eptg::taggable*> selected_tags = project->tags.get_all_by_name(tag_names);
+    QStringList common_tags = QStringListFromStd(project->get_common_tags(selected_tags));
     ui->editTagTags->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->editTagTags->setFocus();
 }
@@ -529,7 +529,7 @@ void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_te
         ui->fillPreview->setPixmap(QPixmap());
     else if (selected_items_text.size() == 1)
     {
-        auto full_path = PathAppend(QString::fromStdString(model->path), QString::fromStdString(*selected_items_text.begin()));
+        auto full_path = PathAppend(QString::fromStdString(project->path), QString::fromStdString(*selected_items_text.begin()));
         QPixmap image(full_path);
         if (image.width() > ui->fillPreview->width() || image.height() > ui->fillPreview->height())
             ui->fillPreview->setPixmap(image.scaled(ui->fillPreview->width(), ui->fillPreview->height(), Qt::AspectRatioMode::KeepAspectRatio));
@@ -549,7 +549,7 @@ void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_te
         for (int r = 0 ; r<rows ; ++r)
             for (int c = 0 ; c<cols && it!=selected_items_text.end() ; ++c,++it)
             {
-                auto full_path = PathAppend(QString::fromStdString(model->path), QString::fromStdString(*it));
+                auto full_path = PathAppend(QString::fromStdString(project->path), QString::fromStdString(*it));
                 QPixmap image(full_path);
                 if (image.width() > w || image.height() > h)
                     image = image.scaled(w-IMG_BORDER, h-IMG_BORDER, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
@@ -574,7 +574,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
         ui->fullpathLabel->setText("");
     else if (selected_items_text.size() == 1)
     {
-        ui->fullpathLabel->setText(PathAppend(QString::fromStdString(model->path), QString::fromStdString(*selected_items_text.begin())));
+        ui->fullpathLabel->setText(PathAppend(QString::fromStdString(project->path), QString::fromStdString(*selected_items_text.begin())));
         int w = ui->fullpathLabel->fontMetrics().width(ui->fullpathLabel->text());
         if (w <= ui->fullpathLabel->width() - 8)
             ui->fullpathLabel->setAlignment(Qt::AlignLeft);
@@ -594,8 +594,8 @@ void MainWindow::on_fillList_itemSelectionChanged()
         ui->fillPreview->setPixmap(QPixmap());
 
     // set tag line into edit
-    std::set<const eptg::taggable*> selected_files = model->files.get_all_by_name(selected_items_text);
-    QStringList common_tags = QStringListFromStd(model->get_common_tags(selected_files));
+    std::set<const eptg::taggable*> selected_files = project->files.get_all_by_name(selected_items_text);
+    QStringList common_tags = QStringListFromStd(project->get_common_tags(selected_files));
     ui->tagsEdit->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->tagsEdit->setFocus();
 }
@@ -654,15 +654,15 @@ void MainWindow::on_menuOpenContainingFolder_triggered()
 
 //    QStringList qpaths;
 //    for (const std::string & rel_path : titles)
-//        qpaths.append(PathAppend(QString::fromStdString(model->path), QString::fromStdString(rel_path)));
+//        qpaths.append(PathAppend(QString::fromStdString(project->path), QString::fromStdString(rel_path)));
 
-    if (!OpenContainingFolder(QStringList(PathAppend(QString::fromStdString(model->path), QString::fromStdString(*titles.begin())))))
+    if (!OpenContainingFolder(QStringList(PathAppend(QString::fromStdString(project->path), QString::fromStdString(*titles.begin())))))
         ui->statusbar->showMessage("Can't open file browser.", 5000);
 }
 
 void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
 {
-    QString path = PathAppend(QString::fromStdString(model->path), ui->fillList->item(index.row())->text());
+    QString path = PathAppend(QString::fromStdString(project->path), ui->fillList->item(index.row())->text());
 
     if (!OpenContainingFolder(QStringList(path)))
         ui->statusbar->showMessage("Can't open file browser.", 5000);
@@ -682,7 +682,7 @@ void MainWindow::GotoFirstUntagged()
 {
     for (int i=0 ; i<ui->fillList->count() ; i++)
     {
-        eptg::File * f = model->files.find(ui->fillList->item(i)->data(Qt::DisplayRole).toString().toStdString());
+        eptg::File * f = project->files.find(ui->fillList->item(i)->data(Qt::DisplayRole).toString().toStdString());
         if (f == nullptr || f->inherited_tags.size() == 0)
         {
             ui->fillList->setCurrentRow(i);
@@ -694,7 +694,7 @@ void MainWindow::GotoFirstUntagged()
 
 void MainWindow::on_menuFindSimilar_triggered()
 {
-    QDialog * find_similar_dialog = new FindSimilarDialog(*this->model, this);
+    QDialog * find_similar_dialog = new FindSimilarDialog(*this->project, this);
     find_similar_dialog->exec();
 }
 
@@ -721,7 +721,7 @@ void MainWindow::on_menuProcess_triggered()
     }
     std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
 
-    QDialog * process_dialog = new ProcessDialog(*this->model, titles, this);
+    QDialog * process_dialog = new ProcessDialog(*this->project, titles, this);
     process_dialog->exec();
 }
 
@@ -738,20 +738,20 @@ void MainWindow::on_previewCheckBox_toggled(bool checked)
 
 void MainWindow::on_menuCopyFiles_triggered()
 {
-    std::unique_ptr<CopyMoveDialog> copy_move_wizard(new CopyMoveDialog(*model, this, false));
+    std::unique_ptr<CopyMoveDialog> copy_move_wizard(new CopyMoveDialog(*project, this, false));
     copy_move_wizard->exec();
-    if ( ! PathIsSub(QString::fromStdString(model->path), copy_move_wizard->preview->dest))
+    if ( ! PathIsSub(QString::fromStdString(project->path), copy_move_wizard->preview->dest))
         ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
     else
-        adjust_ui_for_model();
+        adjust_ui_for_project();
 }
 
 void MainWindow::on_menuMoveFiles_triggered()
 {
-    std::unique_ptr<CopyMoveDialog> copy_move_wizard(new CopyMoveDialog(*model, this, true));
+    std::unique_ptr<CopyMoveDialog> copy_move_wizard(new CopyMoveDialog(*project, this, true));
     copy_move_wizard->exec();
-    if ( ! PathIsSub(QString::fromStdString(model->path), copy_move_wizard->preview->dest))
+    if ( ! PathIsSub(QString::fromStdString(project->path), copy_move_wizard->preview->dest))
         ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
 
-    adjust_ui_for_model();
+    adjust_ui_for_project();
 }

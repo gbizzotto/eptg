@@ -1,4 +1,4 @@
-#include "model.hpp"
+#include "project.hpp"
 #include "constants.hpp"
 #include "helpers.hpp"
 
@@ -19,7 +19,7 @@
 
 namespace eptg {
 
-std::set<std::string> Model::get_common_tags(const std::set<const taggable*> & taggables) const
+std::set<std::string> Project::get_common_tags(const std::set<const taggable*> & taggables) const
 {
     std::set<std::string> result;
     if (taggables.size() == 0)
@@ -50,9 +50,9 @@ std::set<std::string> Model::get_common_tags(const std::set<const taggable*> & t
     return result;
 }
 
-std::unique_ptr<Model> Load(const std::string & full_path)
+std::unique_ptr<Project> Load(const std::string & full_path)
 {
-    std::unique_ptr<Model> model = std::make_unique<Model>(full_path);
+    std::unique_ptr<Project> project = std::make_unique<Project>(full_path);
 
     // sweep directory
     QString qfullpath = QString::fromStdString(full_path);
@@ -60,7 +60,7 @@ std::unique_ptr<Model> Load(const std::string & full_path)
     QStringList filters = {"*.jpg", "*.jpeg", "*.png", "*.gif"};
     QDirIterator it(QString::fromStdString(full_path), filters, QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext())
-        model->files.insert(base_path.relativeFilePath(it.next()).toStdString(), File());
+        project->files.insert(base_path.relativeFilePath(it.next()).toStdString(), File());
 
     // read json file
     QFile file(PathAppend(QString(full_path.c_str()), PROJECT_FILE_NAME));
@@ -74,35 +74,35 @@ std::unique_ptr<Model> Load(const std::string & full_path)
     const QJsonObject files = json["files"].toObject();
     for (const auto & filename : files.keys())
     {
-        if ( ! model->files.has(filename.toStdString())) // prune deleted files
+        if ( ! project->files.has(filename.toStdString())) // prune deleted files
             continue;
-        File & file = model->files.insert(filename.toStdString(), File());
+        File & file = project->files.insert(filename.toStdString(), File());
         const auto & f = files[filename];
         for (const auto tagname : f.toObject()["tags"].toArray())
             if (tagname.toString().size() > 0)
             {
                 file.insert_tag(tagname.toString().toStdString());
-                model->tags.insert(tagname.toString().toStdString(), Tag());
+                project->tags.insert(tagname.toString().toStdString(), Tag());
             }
     }
     const QJsonObject tags = json["tags"].toObject();
     for (const auto & tag_name : tags.keys())
     {
-        Tag & tag = model->tags.insert(tag_name.toStdString(), Tag());
+        Tag & tag = project->tags.insert(tag_name.toStdString(), Tag());
         const auto & t = tags[tag_name];
         for (const auto subtagname : t.toObject()["tags"].toArray())
             if (subtagname.toString().size() > 0)
                 tag.insert_tag(subtagname.toString().toStdString());
     }
-    return model;
+    return project;
 }
 
-void Save(const std::unique_ptr<Model> & model)
+void Save(const std::unique_ptr<Project> & project)
 {
     QJsonObject json_document;
     {
         QJsonObject files_json;
-        for (const auto & [id,file] : model->files.collection)
+        for (const auto & [id,file] : project->files.collection)
         {
             if (file.inherited_tags.size() == 0)
                 continue;
@@ -118,7 +118,7 @@ void Save(const std::unique_ptr<Model> & model)
     }
     {
         QJsonObject tags_json;
-        for (const auto & [id,tag] : model->tags.collection)
+        for (const auto & [id,tag] : project->tags.collection)
         {
             if (tag.inherited_tags.size() == 0)
                 continue;
@@ -133,24 +133,24 @@ void Save(const std::unique_ptr<Model> & model)
         json_document.insert("tags", tags_json);
     }
 
-    QFile file(PathAppend(QString(model->path.c_str()), PROJECT_FILE_NAME));
+    QFile file(PathAppend(QString(project->path.c_str()), PROJECT_FILE_NAME));
     file.open(QIODevice::WriteOnly);
     file.write(QJsonDocument(json_document).toJson());
     file.flush();
     file.close();
 }
 
-bool Model::absorb(const Model & sub_model)
+bool Project::absorb(const Project & sub_project)
 {
-    if ( ! PathIsSub(QString::fromStdString(path), QString::fromStdString(sub_model.path)))
+    if ( ! PathIsSub(QString::fromStdString(path), QString::fromStdString(sub_project.path)))
         return false;
 
-    QString sub_model_rel_path = QDir(QString::fromStdString(path)).relativeFilePath(QString::fromStdString(sub_model.path));
+    QString sub_project_rel_path = QDir(QString::fromStdString(path)).relativeFilePath(QString::fromStdString(sub_project.path));
 
     std::set<std::string> tags_used;
-    for (const auto & [rel_path,file] : sub_model.files.collection)
+    for (const auto & [rel_path,file] : sub_project.files.collection)
     {
-        const std::string new_rel_path = PathAppend(sub_model_rel_path, QString::fromStdString(rel_path)).toStdString();
+        const std::string new_rel_path = PathAppend(sub_project_rel_path, QString::fromStdString(rel_path)).toStdString();
         files.insert(new_rel_path, eptg::taggable(file));
         tags_used.insert(file.inherited_tags.begin(), file.inherited_tags.end());
     }
@@ -159,13 +159,13 @@ bool Model::absorb(const Model & sub_model)
     while( ! tags_used.empty())
     {
         const std::string & tag = *tags_used.begin();
-        const eptg::Tag * tag_in_sub_model = sub_model.tags.find(tag);
-              eptg::Tag & tag_in_new_model =     this->tags.insert(tag, eptg::Tag{});
+        const eptg::Tag * tag_in_sub_project = sub_project.tags.find(tag);
+              eptg::Tag & tag_in_new_project =       this->tags.insert(tag, eptg::Tag{});
 
-        if (tag_in_sub_model)
-            for (const std::string & inherited_tag : tag_in_sub_model->inherited_tags)
+        if (tag_in_sub_project)
+            for (const std::string & inherited_tag : tag_in_sub_project->inherited_tags)
             {
-                tag_in_new_model.insert_tag(inherited_tag);
+                tag_in_new_project.insert_tag(inherited_tag);
                 if (tags_used_done.find(inherited_tag) == tags_used_done.end())
                     tags_used.insert(inherited_tag);
             }
@@ -177,7 +177,7 @@ bool Model::absorb(const Model & sub_model)
     return true;
 }
 
-bool Model::inherits(const eptg::taggable & taggable, std::set<std::string> tags_to_have) const
+bool Project::inherits(const eptg::taggable & taggable, std::set<std::string> tags_to_have) const
 {
     for ( std::set<std::string> tags = taggable.inherited_tags
         ; tags.size() > 0 && tags_to_have.size() > 0
@@ -188,7 +188,7 @@ bool Model::inherits(const eptg::taggable & taggable, std::set<std::string> tags
     }
     return tags_to_have.size() == 0;
 }
-std::map<std::string,const File*> Model::get_files_tagged_with_all(const std::set<std::string> & tags) const
+std::map<std::string,const File*> Project::get_files_tagged_with_all(const std::set<std::string> & tags) const
 {
     std::map<std::string,const File*> result;
     for (const auto & [id,f] : files.collection)
@@ -197,7 +197,7 @@ std::map<std::string,const File*> Model::get_files_tagged_with_all(const std::se
     return result;
 }
 
-std::vector<std::string> Model::search(const SearchNode & search_node) const
+std::vector<std::string> Project::search(const SearchNode & search_node) const
 {
     std::vector<std::string> matches;
 
@@ -208,7 +208,7 @@ std::vector<std::string> Model::search(const SearchNode & search_node) const
     return matches;
 }
 
-std::set<std::string> Model::get_all_inherited_tags(const std::set<const taggable*> & taggables) const
+std::set<std::string> Project::get_all_inherited_tags(const std::set<const taggable*> & taggables) const
 {
     std::set<std::string> result{};
     for (const taggable * taggable : taggables)
@@ -225,7 +225,7 @@ std::set<std::string> Model::get_all_inherited_tags(const std::set<const taggabl
     return result;
 }
 
-std::vector<std::vector<std::string>> Model::_get_tag_paths(const std::string & tag, const std::string & top_tag) const
+std::vector<std::vector<std::string>> Project::_get_tag_paths(const std::string & tag, const std::string & top_tag) const
 {
     std::vector<std::vector<std::string>> result;
 
@@ -245,7 +245,7 @@ std::vector<std::vector<std::string>> Model::_get_tag_paths(const std::string & 
     return result;
 }
 
-std::vector<std::vector<std::string>> Model::get_tag_paths(const std::string & rel_path, const std::string & top_tag) const
+std::vector<std::vector<std::string>> Project::get_tag_paths(const std::string & rel_path, const std::string & top_tag) const
 {
     std::vector<std::vector<std::string>> result;
 
@@ -265,7 +265,7 @@ std::vector<std::vector<std::string>> Model::get_tag_paths(const std::string & r
     return result;
 }
 
-std::vector<std::vector<std::string>> get_similar(const eptg::Model & model, int allowed_difference, std::function<bool(size_t,size_t)> callback)
+std::vector<std::vector<std::string>> get_similar(const eptg::Project & project, int allowed_difference, std::function<bool(size_t,size_t)> callback)
 {
     std::vector<std::vector<std::string>> result;
 
@@ -273,9 +273,9 @@ std::vector<std::vector<std::string>> get_similar(const eptg::Model & model, int
     std::vector<std::tuple<std::string, QImage, double, bool>> thumbs;
 
     // read all images, resize, calculate avg luminosity
-    for (auto it=model.files.collection.begin(),end=model.files.collection.end() ; it!=end ; ++it)
+    for (auto it=project.files.collection.begin(),end=project.files.collection.end() ; it!=end ; ++it)
     {
-        QString full_path = PathAppend(QString::fromStdString(model.path), QString::fromStdString(it->first));
+        QString full_path = PathAppend(QString::fromStdString(project.path), QString::fromStdString(it->first));
         QImage thumb = QImage(full_path).scaled(8, 8);
         double grad = 0;
         for (int y=0 ; y<8 ; y++)
@@ -290,7 +290,7 @@ std::vector<std::vector<std::string>> get_similar(const eptg::Model & model, int
         thumbs.emplace_back(it->first, std::move(thumb), grad, false);
 
         count++;
-        if ( ! callback(count, model.files.size()))
+        if ( ! callback(count, project.files.size()))
             return result;
     }
 

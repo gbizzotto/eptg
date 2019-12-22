@@ -1,6 +1,6 @@
 #include "ui_process.h"
 #include "dialog_process.h"
-#include "model.hpp"
+#include "project.hpp"
 #include "mainwindow.h"
 #include "helpers.hpp"
 
@@ -12,9 +12,9 @@
 #include <QToolTip>
 #include <QCursor>
 
-ProcessDialog::ProcessDialog(const eptg::Model & model, const std::set<std::string> & rel_paths, QWidget * parent)
+ProcessDialog::ProcessDialog(const eptg::Project & project, const std::set<std::string> & rel_paths, QWidget * parent)
     : QDialog(parent)
-    , model(model)
+    , project(project)
     , rel_paths(rel_paths)
 {
     setupUi(this);
@@ -23,7 +23,7 @@ ProcessDialog::ProcessDialog(const eptg::Model & model, const std::set<std::stri
 
 QStringList ProcessDialog::get_commands() const
 {
-    const QString base_path = QString::fromStdString(model.path);
+    const QString base_path = QString::fromStdString(project.path);
     const QStringList base_commands = this->plainTextEdit->toPlainText().split('\n', QString::SkipEmptyParts);
     QStringList commands;
 
