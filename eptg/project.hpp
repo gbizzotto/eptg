@@ -9,6 +9,18 @@
 #include <algorithm>
 #include <variant>
 
+#if __has_include(<filesystem>)
+#   include <filesystem>
+#   define has_stdfs 1
+    namespace stdfs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#   include <experimental/filesystem>
+#   define has_stdfs 1
+    namespace stdfs = std::experimental::filesystem;
+#else
+#   define has_stdfs 0
+#endif
+
 #include <QImage>
 #include <QFile>
 #include <QJsonObject>
@@ -18,9 +30,10 @@
 #include <QDir>
 #include <QDirIterator>
 
-#include "search.hpp"
-#include "helpers.hpp"
-#include "constants.hpp"
+#include "eptg/search.hpp"
+#include "eptg/helpers.hpp"
+#include "eptg/constants.hpp"
+#include "eptg/path.hpp"
 
 namespace eptg {
 
@@ -33,12 +46,12 @@ struct taggable
     inline size_t erase_tag(const STR & tag)       { return inherited_tags.erase (tag); }
     inline bool     has_tag(const STR & tag) const { return inherited_tags.find  (tag) != inherited_tags.end(); }
     template<typename C>
-    bool has_tags(const C & tags) const
+    bool has_all_of(const C & tags) const
     {
         return std::find_if(tags.begin(), tags.end(), [this](const STR & t){ return ! in(inherited_tags, t); }) == tags.end();
     }
     template<typename C>
-    bool has_one(const C & tags) const
+    bool has_one_of(const C & tags) const
     {
         return std::find_if(tags.begin(), tags.end(), [this](const STR & t){ return in(inherited_tags, t); }) != tags.end();
     }
@@ -65,16 +78,16 @@ struct taggable_collection
             return nullptr;
         return &it->second;
     }
-    T * find  (const STR & id) { return const_cast<T*>(const_cast<const taggable_collection<STR,T>*>(this)->find(id)); }
-    T & insert(const STR & id, T && t) { return collection.insert(std::make_pair(id, t)).first->second; }
-    bool has  (const STR & id) const { return collection.find(id) != collection.end(); }
-    bool erase(const STR & it) { return collection.erase(it)>0; }
+    T * find  (const STR & id)         { return const_cast<T*>(const_cast<const taggable_collection<STR,T>*>(this)->find(id)); }
+    T & insert(const STR & id, T && t) { return collection.insert({id, t}).first->second; }
+    bool has  (const STR & id) const   { return collection. find(id) != collection.end(); }
+    bool erase(const STR & id)         { return collection.erase(id)>0; }
     std::map<STR,T> get_tagged_with_all(const std::set<STR> & tags) const
     {
         std::map<STR,T> result;
         for (const auto & p : collection)
         {
-            if ( ! p.second.has_tags(tags))
+            if ( ! p.second.has_all_of(tags))
                 continue;
             result.insert(p);
         }
@@ -106,15 +119,15 @@ struct Project
 
     bool absorb(const Project & sub_project)
     {
-        if ( ! PathIsSub(path, sub_project.path))
+        if ( ! Path::is_sub(path, sub_project.path))
             return false;
 
-        QString sub_project_rel_path = QDir(path).relativeFilePath(sub_project.path);
+        STR sub_project_rel_path = QDir(path).relativeFilePath(sub_project.path);
 
         std::set<STR> tags_used;
         for (const auto & [rel_path,file] : sub_project.files.collection)
         {
-            const STR new_rel_path = PathAppend(sub_project_rel_path, rel_path);
+            const STR new_rel_path = Path::append(sub_project_rel_path, rel_path);
             files.insert(new_rel_path, eptg::taggable(file));
             tags_used.insert(file.inherited_tags.begin(), file.inherited_tags.end());
         }
@@ -146,7 +159,7 @@ struct Project
     {
         std::set<STR> result;
         for (const auto & [name,tag] : this->tags.collection)
-            if (tag.has_one(p_tags))
+            if (tag.has_one_of(p_tags))
                 result.insert(name);
         return result;
     }
@@ -155,7 +168,7 @@ struct Project
         std::map<STR,const File<STR>*> result;
         for (const auto & [id,f] : files.collection)
             if (inherits(f, tags))
-                result.insert(std::make_pair(id,&f));
+                result.insert({id, &f});
         return result;
     }
     std::set<STR> get_common_tags(const std::set<const taggable<STR>*> & taggables) const
@@ -267,7 +280,7 @@ struct Project
 };
 
 template<typename STR>
-std::unique_ptr<Project<STR>> Load(const STR & full_path)
+std::unique_ptr<Project<STR>> load(const STR & full_path)
 {
     std::unique_ptr<Project<STR>> project = std::make_unique<Project<STR>>(full_path);
 
@@ -279,7 +292,7 @@ std::unique_ptr<Project<STR>> Load(const STR & full_path)
         project->files.insert(base_path.relativeFilePath(it.next()), File<STR>());
 
     // read json file
-    QFile file(PathAppend(full_path, PROJECT_FILE_NAME));
+    QFile file(Path::append(full_path, PROJECT_FILE_NAME));
     file.open(QIODevice::ReadOnly);
     QByteArray rawData = file.readAll();
     file.close();
@@ -314,7 +327,7 @@ std::unique_ptr<Project<STR>> Load(const STR & full_path)
 }
 
 template<typename STR>
-void Save(const std::unique_ptr<Project<STR>> & project)
+void save(const std::unique_ptr<Project<STR>> & project)
 {
     QJsonObject json_document;
     {
@@ -350,7 +363,7 @@ void Save(const std::unique_ptr<Project<STR>> & project)
         json_document.insert("tags", tags_json);
     }
 
-    QFile file(PathAppend(project->path, PROJECT_FILE_NAME));
+    QFile file(Path::append(project->path, PROJECT_FILE_NAME));
     file.open(QIODevice::WriteOnly);
     file.write(QJsonDocument(json_document).toJson());
     file.flush();
@@ -368,7 +381,7 @@ std::vector<std::vector<STR>> get_similar(const Project<STR> & project, int allo
     // read all images, resize, calculate avg luminosity
     for (auto it=project.files.collection.begin(),end=project.files.collection.end() ; it!=end ; ++it)
     {
-        QString full_path = PathAppend(project.path, it->first);
+        QString full_path = Path::append(project.path, it->first);
         QImage thumb = QImage(full_path).scaled(8, 8);
         double grad = 0;
         for (int y=0 ; y<8 ; y++)

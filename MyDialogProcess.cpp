@@ -1,8 +1,3 @@
-#include "ui_process.h"
-#include "dialog_process.h"
-#include "project.hpp"
-#include "mainwindow.h"
-#include "helpers.hpp"
 
 #include <QWidget>
 #include <QAbstractButton>
@@ -12,7 +7,14 @@
 #include <QToolTip>
 #include <QCursor>
 
-ProcessDialog::ProcessDialog(const eptg::Project<QString> & project, const std::set<QString> & rel_paths, QWidget * parent)
+#include "ui_process.h"
+#include "MyDialogProcess.h"
+#include "eptg/project.hpp"
+#include "eptg/helpers.hpp"
+
+#include "mainwindow.h"
+
+MyDialogProcess::MyDialogProcess(const eptg::Project<QString> & project, const std::set<QString> & rel_paths, QWidget * parent)
     : QDialog(parent)
     , project(project)
     , rel_paths(rel_paths)
@@ -21,7 +23,7 @@ ProcessDialog::ProcessDialog(const eptg::Project<QString> & project, const std::
     go_on.store(false);
 }
 
-QStringList ProcessDialog::get_commands() const
+QStringList MyDialogProcess::get_commands() const
 {
     const QString base_path = project.path;
     const QStringList base_commands = this->plainTextEdit->toPlainText().split('\n', QString::SkipEmptyParts);
@@ -43,8 +45,8 @@ QStringList ProcessDialog::get_commands() const
         if (QThread::currentThread()->isInterruptionRequested())
             return QStringList();
 
-        QFileInfo info(PathAppend(base_path, rel_path));
-        const QString full_path = PathAppend(base_path, rel_path);
+        QFileInfo info(Path::append(base_path, rel_path));
+        const QString full_path = Path::append(base_path, rel_path);
 
         auto position_it = positions.begin();
         for (auto command : base_commands)
@@ -74,7 +76,7 @@ QStringList ProcessDialog::get_commands() const
     return commands;
 }
 
-void ProcessDialog::on_buttonBox_clicked(QAbstractButton *button)
+void MyDialogProcess::on_buttonBox_clicked(QAbstractButton *button)
 {
     if (button == (QAbstractButton*)(buttonBox->button(buttonBox->Ok)))
     {
@@ -120,7 +122,7 @@ void ProcessDialog::on_buttonBox_clicked(QAbstractButton *button)
     }
 }
 
-void ProcessDialog::on_plainTextEdit_textChanged()
+void MyDialogProcess::on_plainTextEdit_textChanged()
 {
 //    if (preview_thread)
 //    {
@@ -139,12 +141,12 @@ void ProcessDialog::on_plainTextEdit_textChanged()
 //        this->textBrowser->setText(this->preview_commands);
 }
 
-void ProcessDialog::on_previewButton_clicked()
+void MyDialogProcess::on_previewButton_clicked()
 {
     this->textBrowser->setText(get_commands().join("<br/>"));
 }
 
-void ProcessDialog::on_helpButton_clicked()
+void MyDialogProcess::on_helpButton_clicked()
 {
     QToolTip::showText(QCursor::pos(),
                        "%a : absolute path and file name\n"

@@ -7,7 +7,7 @@
 #include <QLineEdit>
 #include <QDialog>
 #include <memory>
-#include "project.hpp"
+#include "eptg/project.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -21,19 +21,19 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    void ShowSimilarGroups(const std::vector<std::vector<QString>> & groups);
+    void show_similar_groups(const std::vector<std::vector<QString>> & groups);
     inline const Ui::MainWindow* Getui() const { return ui; }
 protected:
     void showEvent(QShowEvent *ev);
 private:
     void open(const QString & pathName);
 private slots:
-    void saveCurrentFileTags();
-    void saveCurrentTagTags();
+    void save_current_file_tags();
+    void save_current_tag_tags();
     void refresh_tag_list();
-    bool OpenContainingFolder(const QStringList & paths) const;
-    void GotoFirstUntagged();
-    void PreviewPictures(const std::set<QString> & selected_items_text);
+    bool open_containing_folder(const QStringList & paths) const;
+    void go_to_first_untagged();
+    void preview_pictures(const std::set<QString> & selected_items_text);
     void adjust_ui_for_project();
 
     void on_menuOpenRecent(QAction *action);

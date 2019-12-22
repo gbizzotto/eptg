@@ -4,4 +4,7 @@
 #define IMG_BORDER 4
 #define MAX_RECENT 20
 #define PROJECT_FILE_NAME "eptg.json"
-#endif // CONSTANTS_HPP
+#define PATH_SEPARATOR_CHAR '/'
+#define PATH_SEPARATOR_STR  "/"
+
+#endif // include guard

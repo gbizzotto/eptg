@@ -15,27 +15,28 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    dialog_copy_move.cpp \
-    dialog_find_similar.cpp \
-    dialog_process.cpp \
-    helpers.cpp \
+    MyDialogFindSimilar.cpp \
+    MyDialogProcess.cpp \
+    MyWidgetLineEdit.cpp \
+    MyWidgetTable.cpp \
+    MyWizardCopyMove.cpp \
+    eptg/helpers.cpp \
+    eptg/path.cpp \
     main.cpp \
-    mainwindow.cpp \
-    mylineedit.cpp \
-    mytablewidget.cpp \
-    search.cpp
+    mainwindow.cpp
 
 HEADERS += \
-    constants.hpp \
-    dialog_copy_move.h \
-    dialog_find_similar.h \
-    dialog_process.h \
-    helpers.hpp \
+    MyDialogFindSimilar.h \
+    MyDialogProcess.h \
+    MyWidgetLineEdit.h \
+    MyWidgetTable.h \
+    MyWizardCopyMove.h \
+    eptg/constants.hpp \
+    eptg/helpers.hpp \
+    eptg/path.hpp \
+    eptg/project.hpp \
+    eptg/search.hpp \
     mainwindow.h \
-    mylineedit.h \
-    mytablewidget.h \
-    project.hpp \
-    search.hpp
 
 FORMS += \
     copy_move_wizard.ui \

@@ -35,24 +35,24 @@ bool in(const C & container, const typename C::mapped_type & v)
 
 bool in(const char * values, const char v);
 
-int GetColumn(const QTableWidgetItem *item);
-int GetColumn(const QModelIndex      &item);
-QVariant GetData(const QTableWidgetItem *item);
-QVariant GetData(const QModelIndex      &item);
+int get_column(const QTableWidgetItem *item);
+int get_column(const QModelIndex      &item);
+QVariant get_data(const QTableWidgetItem *item);
+QVariant get_data(const QModelIndex      &item);
 
 template<typename ITEM_TYPE>
-std::set<QString> GetSelectedRowsTitles(const QList<ITEM_TYPE> & selected_items)
+std::set<QString> names_from_list_selection(const QList<ITEM_TYPE> & selected_items)
 {
     std::set<QString> result;
     for (int i=0 ; i<selected_items.size() ; i++)
-        if (GetColumn(selected_items[i]) == 0)
-            result.insert(GetData(selected_items[i]).toString());
+        if (get_column(selected_items[i]) == 0)
+            result.insert(get_data(selected_items[i]).toString());
     return result;
 }
 
 template<typename C,
          typename std::enable_if<std::is_same<typename C::value_type,std::string>{},int>::type = 0>
-QStringList QStringListFromStd(const C & container)
+QStringList qstring_list_from_std_container(const C & container)
 {
     QStringList result;
     for (const std::string & s : container)
@@ -61,7 +61,7 @@ QStringList QStringListFromStd(const C & container)
 }
 template<typename C,
          typename std::enable_if<std::is_same<typename C::value_type,std::string>{},int>::type = 0>
-QStringList QStringListFromStd(C && string_collection)
+QStringList qstring_list_from_std_container(C && string_collection)
 {
     QStringList result;
     for (const std::string & str : string_collection)
@@ -71,7 +71,7 @@ QStringList QStringListFromStd(C && string_collection)
 
 template<typename C,
          typename std::enable_if<std::is_same<typename C::value_type,QString>{},int>::type = 0>
-QStringList QStringListFromStd(const C & string_collection)
+QStringList qstring_list_from_std_container(const C & string_collection)
 {
     QStringList result;
     for (const QString & str : string_collection)
@@ -80,7 +80,7 @@ QStringList QStringListFromStd(const C & string_collection)
 }
 template<typename C,
          typename std::enable_if<std::is_same<typename C::value_type,QString>{},int>::type = 0>
-QStringList QStringListFromStd(C && string_collection)
+QStringList qstring_list_from_std_container(C && string_collection)
 {
     QStringList result;
     for (const QString & str : string_collection)
@@ -95,11 +95,6 @@ QString & operator<<(QString & out, const T & t)
 }
 template<>
 QString & operator<<(QString & out, const std::string & t);
-
-QString PathAppend(const QString & path1, const QString & path2);
-bool PathIsSub(const QString & path, const QString & maybe_sub_path);
-QString PathUp(QString path);
-bool PathParentHas(QString sweep_path, const QString & file_name);
 
 bool images_close(const QImage & left, const QImage & right, int allowed_difference);
 
@@ -167,7 +162,11 @@ public:
 template<typename C>
 values_impl<C> values(const C & container) { return values_impl<C>(container); }
 
-QString     substring(          QString   str,    int idx);
 std::string substring(const std::string & str, size_t idx);
+    QString substring(          QString   str,    int idx);
+std::vector<std::string> split(const std::string & s, const char * separators = " \t", const char * ignore = "");
+std::vector<    QString> split(const     QString & s, const char * separators = " \t", const char * ignore = "");
+std::string to_lower(const std::string & str);
+    QString to_lower(const     QString & str);
 
 #endif // HELPERS_HPP

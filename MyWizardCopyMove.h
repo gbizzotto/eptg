@@ -2,10 +2,13 @@
 #define DIALOG_COPY_MOVE_H
 
 #include <atomic>
+
 #include <QWizard>
 #include <QDir>
+
+#include "eptg/project.hpp"
 #include "ui_copy_move_wizard.h"
-#include "project.hpp"
+
 #include "mainwindow.h"
 
 QT_BEGIN_NAMESPACE
@@ -35,7 +38,7 @@ struct CopyMoveData
     inline CopyMoveData(const eptg::Project<QString> & project, bool move, bool selected, QString dest, TreeType tree, bool overwrite, QString tag="")
         : is_move(move)
         , is_selected(selected)
-        , dest(QDir::cleanPath(QDir(dest).isRelative() ? PathAppend(project.path, dest) : std::move(dest)))
+        , dest(QDir::cleanPath(QDir(dest).isRelative() ? Path::append(project.path, dest) : std::move(dest)))
         , tree_type(tree)
         , overwrite(overwrite)
         , tag(std::move(tag))
@@ -100,14 +103,14 @@ struct CopyMoveData
             return get_preview_flat(rel_path);
         else
         {
-            return PathAppend(
+            return Path::append(
                     std::accumulate(paths[0].rbegin(), paths[0].rend(), QString(""),
                         [](const QString & result, const QString & folder)
                             {
                                 if (result == "")
                                     return folder;
                                 else
-                                    return PathAppend(result, folder);
+                                    return Path::append(result, folder);
                             }
                         ),
                     QFileInfo(rel_path).fileName()
@@ -120,11 +123,11 @@ struct CopyMoveData
         QFileInfo info(rel_path);
         QFileInfo info_new(rel_path);
         int i = 2;
-        while(QFileInfo(PathAppend(dest, info_new.fileName())).exists() || in(files, info_new.fileName()))
+        while(QFileInfo(Path::append(dest, info_new.fileName())).exists() || in(files, info_new.fileName()))
         {
             QString new_rel_path = info.baseName() + " (" + QString::number(i) + ")." + info.suffix();
             if (info.path() != ".")
-                new_rel_path = PathAppend(info.path(), new_rel_path);
+                new_rel_path = Path::append(info.path(), new_rel_path);
             info_new = QFileInfo(new_rel_path);
             i++;
             name_collision_count++;
@@ -133,12 +136,12 @@ struct CopyMoveData
     }
     inline void count_for_duplicity(const QString & new_rel_path)
     {
-        if (QFileInfo(PathAppend(dest, new_rel_path)).exists() || in(files, new_rel_path))
+        if (QFileInfo(Path::append(dest, new_rel_path)).exists() || in(files, new_rel_path))
             name_collision_count++;
     }
 };
 
-class CopyMoveDialog : public QWizard, public Ui::CopyMoveWizard
+class MyWizardCopyMove : public QWizard, public Ui::CopyMoveWizard
 {
     Q_OBJECT
 
@@ -152,7 +155,7 @@ public:
     std::unique_ptr<CopyMoveData> preview;
 
 public:
-    CopyMoveDialog(eptg::Project<QString> & project, QWidget * parent, bool is_move);
+    MyWizardCopyMove(eptg::Project<QString> & project, QWidget * parent, bool is_move);
     QString get_preview_flat    (const QString & rel_path) const;
     QString get_preview_preserve(const QString & rel_path) const;
     QString get_preview_tag     (const QString & rel_path, const QString & top_tag) const;

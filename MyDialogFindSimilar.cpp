@@ -1,17 +1,18 @@
 
 #include <atomic>
 
-#include "dialog_find_similar.h"
+#include "eptg/project.hpp"
+#include "eptg/helpers.hpp"
+
+#include "MyDialogFindSimilar.h"
 #include "ui_find_similar.h"
-#include "project.hpp"
-#include "helpers.hpp"
 #include "mainwindow.h"
 
 #include <QAbstractButton>
 #include <QCoreApplication>
 #include <QPushButton>
 
-FindSimilarDialog::FindSimilarDialog(const eptg::Project<QString> & project, QWidget * parent)
+MyDialogFindSimilar::MyDialogFindSimilar(const eptg::Project<QString> & project, QWidget * parent)
     : QDialog(parent)
     , project(project)
 {
@@ -19,7 +20,7 @@ FindSimilarDialog::FindSimilarDialog(const eptg::Project<QString> & project, QWi
     go_on.store(false);
 }
 
-void FindSimilarDialog::on_buttonBox_clicked(QAbstractButton *button)
+void MyDialogFindSimilar::on_buttonBox_clicked(QAbstractButton *button)
 {
     if (button == (QAbstractButton*)(buttonBox->button(buttonBox->Ok)))
     {
@@ -35,7 +36,7 @@ void FindSimilarDialog::on_buttonBox_clicked(QAbstractButton *button)
                 return go_on.load();
             });
         MainWindow * main = (MainWindow*) this->parent();
-        main->ShowSimilarGroups(groups_of_similars);
+        main->show_similar_groups(groups_of_similars);
 
         this->progressBar->setEnabled(false);
         this->horizontalSlider->setEnabled(true);
@@ -50,7 +51,7 @@ void FindSimilarDialog::on_buttonBox_clicked(QAbstractButton *button)
     }
 }
 
-void FindSimilarDialog::on_FindSimilar_finished(int)
+void MyDialogFindSimilar::on_FindSimilar_finished(int)
 {
     go_on.store(false);
     this->progressBar->setEnabled(false);

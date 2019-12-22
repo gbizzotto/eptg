@@ -7,14 +7,7 @@
 #include <string>
 #include <algorithm>
 
-#include <QString>
-
 #include "helpers.hpp"
-
-std::vector<std::string> split(const std::string & s, const char * separators = " \t", const char * ignore = "");
-std::vector<QString>     split(const     QString & s, const char * separators = " \t", const char * ignore = "");
-std::string to_lower(const std::string & str);
-QString to_lower(const QString & str);
 
 template<typename STR>
 struct SearchNode

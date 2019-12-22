@@ -2,7 +2,7 @@
 
 #include <QApplication>
 
-#include "project.hpp"
+#include "eptg/project.hpp"
 
 int main(int argc, char *argv[])
 {

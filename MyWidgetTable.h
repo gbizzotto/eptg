@@ -4,13 +4,13 @@
 #include <QTableWidget>
 #include <QResizeEvent>
 
-class MyTableWidget : public QTableWidget
+class MyWidgetTable : public QTableWidget
 {
 protected:
     void resizeEvent(QResizeEvent * e);
 
 public:
-    MyTableWidget(QWidget * parent);
+    MyWidgetTable(QWidget * parent);
 };
 
 #endif // MYTABLEWIDGET_HPP

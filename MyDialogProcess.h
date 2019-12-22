@@ -2,17 +2,20 @@
 #define DIALOG_PROCESS_H
 
 #include <atomic>
+
 #include <QDialog>
 #include <QStringList>
 #include <QThread>
+
+#include "eptg/project.hpp"
+
 #include "ui_process.h"
-#include "project.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Process; }
 QT_END_NAMESPACE
 
-class ProcessDialog : public QDialog, public Ui::Process
+class MyDialogProcess : public QDialog, public Ui::Process
 {
     Q_OBJECT
 
@@ -24,7 +27,7 @@ private:
     QStringList get_commands() const;
 
 public:
-    ProcessDialog(const eptg::Project<QString> & project, const std::set<QString> & rel_paths, QWidget * parent);
+    MyDialogProcess(const eptg::Project<QString> & project, const std::set<QString> & rel_paths, QWidget * parent);
 private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_plainTextEdit_textChanged();

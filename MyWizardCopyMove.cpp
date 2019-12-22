@@ -1,14 +1,15 @@
 
 #include <QFileDialog>
 
-#include "dialog_copy_move.h"
-#include "project.hpp"
+#include "MyWizardCopyMove.h"
+#include "eptg/project.hpp"
+#include "eptg/helpers.hpp"
+#include "eptg/constants.hpp"
+#include "eptg/path.hpp"
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "helpers.hpp"
-#include "constants.hpp"
 
-CopyMoveDialog::CopyMoveDialog(eptg::Project<QString> & project, QWidget * parent, bool is_move)
+MyWizardCopyMove::MyWizardCopyMove(eptg::Project<QString> & project, QWidget * parent, bool is_move)
     : QWizard(parent)
     , project(project)
     , is_move(is_move)
@@ -26,7 +27,7 @@ CopyMoveDialog::CopyMoveDialog(eptg::Project<QString> & project, QWidget * paren
     this->destFolderLineEdit->setText(project.path);
 }
 
-void CopyMoveDialog::on_toolButton_clicked()
+void MyWizardCopyMove::on_toolButton_clicked()
 {
     QString default_path_for_open_dialog = project.path;
     if (destFolderLineEdit->text().size() != 0)
@@ -36,17 +37,17 @@ void CopyMoveDialog::on_toolButton_clicked()
         destFolderLineEdit->setText(path);
 }
 
-void CopyMoveDialog::on_destFolderLineEdit_textChanged(const QString &arg1)
+void MyWizardCopyMove::on_destFolderLineEdit_textChanged(const QString &arg1)
 {
     QStringList messages;
 
-    if ( ! PathIsSub(project.path, arg1))
+    if ( ! Path::is_sub(project.path, arg1))
     {
         messages += "- <font color=red>"
                     "Warning: Moving files out of this project.<br/>"
                     "New project will be added to menu File>Open Recent."
                     "</font>";
-        if (PathParentHas(arg1, QString(PROJECT_FILE_NAME)))
+        if (Path::parent_has(arg1, QString(PROJECT_FILE_NAME)))
             messages += "- <font color=black>"
                         "Warning: Moving files to an existing project.<br/>"
                         "Destination project will be updated to include the new files."
@@ -56,7 +57,7 @@ void CopyMoveDialog::on_destFolderLineEdit_textChanged(const QString &arg1)
     this->moveDestWarningLabel->setText(messages.join("<br/><br/>"));
 }
 
-void CopyMoveDialog::make_preview()
+void MyWizardCopyMove::make_preview()
 {
     auto new_preview = std::make_unique<CopyMoveData>(
          project
@@ -72,22 +73,22 @@ void CopyMoveDialog::make_preview()
     {
         preview.swap(new_preview);
         preview->process(keys(project.files.collection)
-                        ,GetSelectedRowsTitles(main_window->Getui()->fillList->selectionModel()->selectedIndexes())
+                        ,names_from_list_selection(main_window->Getui()->fillList->selectionModel()->selectedIndexes())
                         );
     }
 }
 
-void CopyMoveDialog::display_preview()
+void MyWizardCopyMove::display_preview()
 {
     make_preview();
 
     QStringList preview_files;
     for (const QString & new_path : keys(preview->files))
-        preview_files.append(PathAppend(preview->dest, new_path));
+        preview_files.append(Path::append(preview->dest, new_path));
     this->previewBrowser->setText(preview_files.join("<br/>"));
 }
 
-void CopyMoveDialog::on_CopyMoveWizard_currentIdChanged(int page_id)
+void MyWizardCopyMove::on_CopyMoveWizard_currentIdChanged(int page_id)
 {
     if (page_id == 4)
         display_preview();
@@ -112,52 +113,52 @@ void CopyMoveDialog::on_CopyMoveWizard_currentIdChanged(int page_id)
     }
 }
 
-void CopyMoveDialog::on_treeNoneRadio_toggled(bool checked)
+void MyWizardCopyMove::on_treeNoneRadio_toggled(bool checked)
 {
     if (checked)
         display_preview();
 }
 
-void CopyMoveDialog::on_treePreserveRadio_toggled(bool checked)
+void MyWizardCopyMove::on_treePreserveRadio_toggled(bool checked)
 {
     if (checked)
         display_preview();
 }
 
-void CopyMoveDialog::on_treeTagRadio_toggled(bool checked)
+void MyWizardCopyMove::on_treeTagRadio_toggled(bool checked)
 {
     this->treeTagEdit->setEnabled(checked);
     this->previewButton->setEnabled(checked);
 }
 
-void CopyMoveDialog::on_previewButton_clicked()
+void MyWizardCopyMove::on_previewButton_clicked()
 {
     display_preview();
 }
 
-void CopyMoveDialog::on_treeTagEdit_returnPressed()
+void MyWizardCopyMove::on_treeTagEdit_returnPressed()
 {
     display_preview();
 }
 
-void CopyMoveDialog::on_CopyMoveWizard_finished(int result)
+void MyWizardCopyMove::on_CopyMoveWizard_finished(int result)
 {
     if (result == 0)
         return;
 
     make_preview();
 
-    auto dest_project = eptg::Load(preview->dest);
+    auto dest_project = eptg::load(preview->dest);
     std::set<QString> tags_used;
 
-    bool is_internal = PathIsSub(project.path, preview->dest);
+    bool is_internal = Path::is_sub(project.path, preview->dest);
 
     for (const auto & filenames_tuple : preview->files)
     {
         QString new_rel_path = std::get<0>(filenames_tuple);
         QString old_rel_path = std::get<1>(filenames_tuple);
 
-        QFileInfo dest_info(PathAppend(preview->dest, new_rel_path));
+        QFileInfo dest_info(Path::append(preview->dest, new_rel_path));
         QDir dest_dir(dest_info.path());
 
         if ( ! dest_dir.exists())
@@ -168,11 +169,11 @@ void CopyMoveDialog::on_CopyMoveWizard_finished(int result)
             }
 
         // actual files
-        QFile::copy(PathAppend(project.path , old_rel_path)
-                   ,PathAppend(preview->dest, new_rel_path)
+        QFile::copy(Path::append(project.path , old_rel_path)
+                   ,Path::append(preview->dest, new_rel_path)
                    );
         if (preview->is_move)
-            QFile(PathAppend(project.path, old_rel_path)).remove();
+            QFile(Path::append(project.path, old_rel_path)).remove();
 
         // files in Project
         eptg::File<QString> & new_file = dest_project->files.insert(new_rel_path, eptg::File<QString>{});
@@ -213,5 +214,5 @@ void CopyMoveDialog::on_CopyMoveWizard_finished(int result)
     if (is_internal)
         project.absorb(*dest_project);
     else
-        eptg::Save(dest_project);
+        eptg::save(dest_project);
 }

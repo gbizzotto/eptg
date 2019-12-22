@@ -4,13 +4,13 @@
 #include <QLineEdit>
 #include <QFocusEvent>
 
-class MyLineEdit : public QLineEdit
+class MyWidgetLineEdit : public QLineEdit
 {
 protected:
     void focusInEvent(QFocusEvent *e);
 
 public:
-    MyLineEdit(QWidget *parent);
+    MyWidgetLineEdit(QWidget *parent);
 };
 
 #endif // MYLINEEDIT_H

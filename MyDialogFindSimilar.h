@@ -4,13 +4,13 @@
 #include <atomic>
 #include <QDialog>
 #include "ui_find_similar.h"
-#include "project.hpp"
+#include "eptg/project.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class FindSimilar; }
 QT_END_NAMESPACE
 
-class FindSimilarDialog : public QDialog, public Ui::FindSimilar
+class MyDialogFindSimilar : public QDialog, public Ui::FindSimilar
 {
     Q_OBJECT
 
@@ -19,7 +19,7 @@ private:
     std::atomic_bool go_on;
 
 public:
-    FindSimilarDialog(const eptg::Project<QString> & project, QWidget * parent);
+    MyDialogFindSimilar(const eptg::Project<QString> & project, QWidget * parent);
 private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_FindSimilar_finished(int result);
