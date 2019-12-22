@@ -12,7 +12,7 @@
 #include <QToolTip>
 #include <QCursor>
 
-ProcessDialog::ProcessDialog(const eptg::Project & project, const std::set<std::string> & rel_paths, QWidget * parent)
+ProcessDialog::ProcessDialog(const eptg::Project<QString> & project, const std::set<QString> & rel_paths, QWidget * parent)
     : QDialog(parent)
     , project(project)
     , rel_paths(rel_paths)
@@ -23,7 +23,7 @@ ProcessDialog::ProcessDialog(const eptg::Project & project, const std::set<std::
 
 QStringList ProcessDialog::get_commands() const
 {
-    const QString base_path = QString::fromStdString(project.path);
+    const QString base_path = project.path;
     const QStringList base_commands = this->plainTextEdit->toPlainText().split('\n', QString::SkipEmptyParts);
     QStringList commands;
 
@@ -38,13 +38,13 @@ QStringList ProcessDialog::get_commands() const
             positions.back().insert(positions.back().begin(), pos);
     }
 
-    for (const std::string & rel_path : rel_paths)
+    for (const QString & rel_path : rel_paths)
     {
         if (QThread::currentThread()->isInterruptionRequested())
             return QStringList();
 
-        QFileInfo info(PathAppend(base_path, QString::fromStdString(rel_path)));
-        const QString full_path = PathAppend(base_path, QString::fromStdString(rel_path));
+        QFileInfo info(PathAppend(base_path, rel_path));
+        const QString full_path = PathAppend(base_path, rel_path);
 
         auto position_it = positions.begin();
         for (auto command : base_commands)
@@ -63,9 +63,9 @@ QStringList ProcessDialog::get_commands() const
                 else if (command[pos+1] == 'b')
                     command.replace(pos, 2, base_path);
                 else if (command[pos+1] == 'r')
-                    command.replace(pos, 2, QString::fromStdString(rel_path));
+                    command.replace(pos, 2, rel_path);
                 else if (command[pos+1] == 'f')
-                    command.replace(pos, 2, QFileInfo(QString::fromStdString(rel_path)).path());
+                    command.replace(pos, 2, QFileInfo(rel_path).path());
             }
             commands.append(command);
             ++position_it;

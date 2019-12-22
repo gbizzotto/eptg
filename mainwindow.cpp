@@ -167,7 +167,7 @@ void MainWindow::on_menuOpenFolder_triggered()
 
 void MainWindow::open(const QString & pathName)
 {
-    project = eptg::Load(pathName.toStdString());
+    project = eptg::Load(pathName);
 
     adjust_ui_for_project();
 
@@ -184,11 +184,11 @@ void MainWindow::open(const QString & pathName)
 
 void MainWindow::adjust_ui_for_project()
 {
-    const QString pathName = QString::fromStdString(project->path);
+    const QString pathName = project->path;
 
     ui->fillList->clear();
     for (const auto & p : project->files.collection)
-        ui->fillList->addItem(QString::fromStdString(p.first));
+        ui->fillList->addItem(p.first);
     statusCountLabel->setText(QString::number(project->files.size()) + " files");
     if (project->files.size() == 0)
         statusPercentTaggedLabel->setText("");
@@ -231,23 +231,19 @@ void MainWindow::adjust_ui_for_project()
     // known tags for autocompletion
     known_tags.clear();
     for (const auto & p : project->files.collection)
-        for (const std::string & t : p.second.inherited_tags)
+        for (const QString & t : p.second.inherited_tags)
         {
-            QString tag(t.c_str());
-            if (known_tags.find(tag) == known_tags.end())
-                known_tags[tag] = 0;
-            known_tags[tag]++;
+            if (known_tags.find(t) == known_tags.end())
+                known_tags[t] = 0;
+            known_tags[t]++;
         }
     for (const auto & [key,val] : project->tags.collection)
     {
-        if (known_tags.find(QString::fromStdString(key)) == known_tags.end())
-            known_tags[QString::fromStdString(key)] = 0;
-        for (const std::string & t : val.inherited_tags)
-        {
-            QString tag(t.c_str());
-            if (known_tags.find(tag) == known_tags.end())
-                known_tags[tag] = 0;
-        }
+        if (known_tags.find(key) == known_tags.end())
+            known_tags[key] = 0;
+        for (const QString & t : val.inherited_tags)
+            if (known_tags.find(t) == known_tags.end())
+                known_tags[t] = 0;
     }
 
     // Tag list
@@ -269,7 +265,7 @@ void MainWindow::adjust_ui_for_project()
 void MainWindow::refresh_tag_list()
 {
     // save selected items
-    std::set<std::string> selected_tag_names = GetSelectedRowsTitles(ui->tagList->selectedItems());
+    std::set<QString> selected_tag_names = GetSelectedRowsTitles(ui->tagList->selectedItems());
 
     // update list
     ui->tagList->clearContents();
@@ -288,7 +284,7 @@ void MainWindow::refresh_tag_list()
     // restore selected items
     ui->tagList->setSelectionMode(QAbstractItemView::MultiSelection);
     for (int i=0 ; i<ui->tagList->rowCount() ; i++)
-        if (selected_tag_names.find(ui->tagList->item(i,0)->data(Qt::DisplayRole).toString().toStdString()) != selected_tag_names.end())
+        if (selected_tag_names.find(ui->tagList->item(i,0)->data(Qt::DisplayRole).toString()) != selected_tag_names.end())
             ui->tagList->selectRow(i);
     ui->tagList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 }
@@ -312,18 +308,18 @@ void MainWindow::saveCurrentFileTags()
     if (selected_items.size() == 0)
         return;
 
-    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
-    std::set<std::string> common_tags = project->get_common_tags(project->files.get_all_by_name(titles));
+    std::set<QString> titles = GetSelectedRowsTitles(selected_items);
+    std::set<QString> common_tags = project->get_common_tags(project->files.get_all_by_name(titles));
 
-    std::set<std::string> typed_tags;
+    std::set<QString> typed_tags;
     for (const QString & tag : ui->tagsEdit->text().split(' '))
     {
         if (tag.size() == 0)
             continue;
-        typed_tags.insert(tag.toStdString());
+        typed_tags.insert(tag);
     }
-    std::set<std::string> added_tags   = Added(common_tags, typed_tags);
-    std::set<std::string> removed_tags = Added(typed_tags, common_tags);
+    std::set<QString> added_tags   = Added(common_tags, typed_tags);
+    std::set<QString> removed_tags = Added(typed_tags, common_tags);
 
     for (int i=0 ; i<selected_items.size() ; i++)
     {
@@ -331,28 +327,27 @@ void MainWindow::saveCurrentFileTags()
         auto rel_path = ui->fillList->item(idx)->data(Qt::DisplayRole).toString();
         if (removed_tags.size() > 0)
         {
-            eptg::File * f = project->files.find(rel_path.toStdString());
+            eptg::File<QString> * f = project->files.find(rel_path);
             if (f != nullptr)
-                for (const std::string & t : removed_tags)
+                for (const QString & t : removed_tags)
                 {
                     f->erase_tag(t);
                     // update known_tags
-                    auto it = known_tags.find(QString::fromStdString(t));
+                    auto it = known_tags.find(t);
                     if (it != known_tags.end())
                         it->second--;
                 }
         }
         if (added_tags.size() > 0)
         {
-            eptg::File & f = project->files.insert(rel_path.toStdString(), eptg::File());
-            for (const std::string & t : added_tags)
+            eptg::File<QString> & f = project->files.insert(rel_path, eptg::File<QString>());
+            for (const QString & t : added_tags)
             {
                 f.insert_tag(t);
                 // update known_tags
-                QString qstr_t = QString::fromStdString(t);
-                auto it = known_tags.lower_bound(qstr_t);
-                if (it == known_tags.end() || it->first != qstr_t)
-                    it = known_tags.insert(std::make_pair(qstr_t, 0)).first;
+                auto it = known_tags.lower_bound(t);
+                if (it == known_tags.end() || it->first != t)
+                    it = known_tags.insert(std::make_pair(t, 0)).first;
                 it->second++;
             }
         }
@@ -395,9 +390,9 @@ void MainWindow::on_searchEdit_returnPressed()
 
     ui->fillList->clear();
 
-    std::vector<std::string> rel_paths = project->search(SearchNode(ui->searchEdit->text().toStdString()));
+    std::vector<QString> rel_paths = project->search(SearchNode(ui->searchEdit->text()));
     for (const auto & rel_path : rel_paths)
-        ui->fillList->addItem(QString::fromStdString(rel_path));
+        ui->fillList->addItem(rel_path);
 
     statusCountLabel->setText(QString::number(rel_paths.size()) + " / " + QString::number(project->files.size()) + " files");
     ui->fillList->setCurrentIndex(ui->fillList->model()->index(0, 0));
@@ -417,51 +412,50 @@ void MainWindow::saveCurrentTagTags()
     if (selected_items.size() == 0)
         return;
 
-    std::set<std::string> selected_tag_names = GetSelectedRowsTitles(selected_items);
-    std::set<std::string> common_tags = project->get_common_tags(project->tags.get_all_by_name(selected_tag_names));
+    std::set<QString> selected_tag_names = GetSelectedRowsTitles(selected_items);
+    std::set<QString> common_tags = project->get_common_tags(project->tags.get_all_by_name(selected_tag_names));
 
-    std::set<std::string> typed_tags;
+    std::set<QString> typed_tags;
     for (const QString & tag : ui->editTagTags->text().split(' '))
         if (tag.size() > 0)
-            typed_tags.insert(tag.toStdString());
-    std::set<std::string> added_tags   = Added(common_tags, typed_tags);
-    std::set<std::string> removed_tags = Added(typed_tags, common_tags);
+            typed_tags.insert(tag);
+    std::set<QString> added_tags   = Added(common_tags, typed_tags);
+    std::set<QString> removed_tags = Added(typed_tags, common_tags);
 
-    for (const std::string & selected_tag_name : selected_tag_names)
+    for (const QString & selected_tag_name : selected_tag_names)
     {
         if (removed_tags.size() > 0)
         {
-            eptg::Tag * t = project->tags.find(selected_tag_name);
+            eptg::Tag<QString> * t = project->tags.find(selected_tag_name);
             if (t != nullptr)
-                for (const std::string & st : removed_tags)
+                for (const QString & st : removed_tags)
                     t->erase_tag(st);
         }
         if (added_tags.size() > 0)
         {
-            eptg::Tag & t = project->tags.insert(selected_tag_name, eptg::Tag());
-            for (const std::string & st : added_tags)
+            eptg::Tag<QString> & t = project->tags.insert(selected_tag_name, eptg::Tag<QString>());
+            for (const QString & st : added_tags)
             {
                 // let's check that the tag added does not already inherit (is tagged with) the selected tag
                 // if so, it would create circular inheritance, which does not make sense
                 // e.g.: if TZM is a ACTIVISM. Can't make ACTIVISM a TZM.
-                eptg::Tag * candidate = project->tags.find(st);
+                eptg::Tag<QString> * candidate = project->tags.find(st);
                 if (candidate != nullptr && candidate == project->tags.find(selected_tag_name))
                     ui->statusbar->showMessage("Can't self-tag.", 10000);
                 else if (candidate != nullptr && project->inherits(*candidate, {selected_tag_name}))
                 {
                     QString msg;
-                    msg << "Can't add tag '" << QString::fromStdString(st) << "' to tag " << selected_tag_name << "' because '" << selected_tag_name
-                        << "' or one of its parent tags has already been tagged '" << QString::fromStdString(st) << "'.";
+                    msg << "Can't add tag '" << st << "' to tag " << selected_tag_name << "' because '" << selected_tag_name
+                        << "' or one of its parent tags has already been tagged '" << st << "'.";
                     ui->statusbar->showMessage(msg, 10000);
                 }
                 else
                 {
                     t.insert_tag(st);
                     // update known_tags
-                    QString qstr_t = QString::fromStdString(st);
-                    auto it = known_tags.lower_bound(qstr_t);
-                    if (it == known_tags.end() || it->first != qstr_t)
-                        it = known_tags.insert(std::make_pair(qstr_t, 0)).first;
+                    auto it = known_tags.lower_bound(st);
+                    if (it == known_tags.end() || it->first != st)
+                        it = known_tags.insert(std::make_pair(st, 0)).first;
                 }
             }
         }
@@ -489,7 +483,7 @@ void MainWindow::on_editTagTags_returnPressed()
 
 void MainWindow::on_tagList_itemSelectionChanged()
 {
-    std::set<std::string> tag_names = GetSelectedRowsTitles(ui->tagList->selectedItems());
+    std::set<QString> tag_names = GetSelectedRowsTitles(ui->tagList->selectedItems());
 
     if (tag_names.size() == 0)
     {
@@ -500,14 +494,14 @@ void MainWindow::on_tagList_itemSelectionChanged()
     // prepare preview
     QStringList hierarchy;
 
-    for ( std::set<std::string> tags = project->get_common_tags(project->tags.get_all_by_name(tag_names))
+    for ( std::set<QString> tags = project->get_common_tags(project->tags.get_all_by_name(tag_names))
         ; tags.size() > 0
         ; tags = project->get_common_tags(project->tags.get_all_by_name(tags)) )
     {
         hierarchy.insert(0, QStringListFromStd(tags).join(", "));
     }
     hierarchy += QString("<b>").append(QStringListFromStd(tag_names).join(", ")).append("</b>");
-    for ( std::set<std::string> tags = project->get_descendent_tags(tag_names)
+    for ( std::set<QString> tags = project->get_descendent_tags(tag_names)
         ; tags.size() > 0
         ; tags = project->get_descendent_tags(tags) )
     {
@@ -517,19 +511,19 @@ void MainWindow::on_tagList_itemSelectionChanged()
     ui->tagTreePreview->setText(hierarchy.join("<br/>↑<br/>"));
 
     // set tag line into edit
-    std::set<const eptg::taggable*> selected_tags = project->tags.get_all_by_name(tag_names);
+    std::set<const eptg::taggable<QString>*> selected_tags = project->tags.get_all_by_name(tag_names);
     QStringList common_tags = QStringListFromStd(project->get_common_tags(selected_tags));
     ui->editTagTags->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->editTagTags->setFocus();
 }
 
-void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_text)
+void MainWindow::PreviewPictures(const std::set<QString> & selected_items_text)
 {
     if (selected_items_text.size() == 0)
         ui->fillPreview->setPixmap(QPixmap());
     else if (selected_items_text.size() == 1)
     {
-        auto full_path = PathAppend(QString::fromStdString(project->path), QString::fromStdString(*selected_items_text.begin()));
+        auto full_path = PathAppend(project->path, *selected_items_text.begin());
         QPixmap image(full_path);
         if (image.width() > ui->fillPreview->width() || image.height() > ui->fillPreview->height())
             ui->fillPreview->setPixmap(image.scaled(ui->fillPreview->width(), ui->fillPreview->height(), Qt::AspectRatioMode::KeepAspectRatio));
@@ -549,7 +543,7 @@ void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_te
         for (int r = 0 ; r<rows ; ++r)
             for (int c = 0 ; c<cols && it!=selected_items_text.end() ; ++c,++it)
             {
-                auto full_path = PathAppend(QString::fromStdString(project->path), QString::fromStdString(*it));
+                auto full_path = PathAppend(project->path, *it);
                 QPixmap image(full_path);
                 if (image.width() > w || image.height() > h)
                     image = image.scaled(w-IMG_BORDER, h-IMG_BORDER, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
@@ -567,14 +561,14 @@ void MainWindow::PreviewPictures(const std::set<std::string> & selected_items_te
 
 void MainWindow::on_fillList_itemSelectionChanged()
 {
-    std::set<std::string> selected_items_text = GetSelectedRowsTitles(ui->fillList->selectionModel()->selectedIndexes());
+    std::set<QString> selected_items_text = GetSelectedRowsTitles(ui->fillList->selectionModel()->selectedIndexes());
 
     // display full path
     if (selected_items_text.size() == 0)
         ui->fullpathLabel->setText("");
     else if (selected_items_text.size() == 1)
     {
-        ui->fullpathLabel->setText(PathAppend(QString::fromStdString(project->path), QString::fromStdString(*selected_items_text.begin())));
+        ui->fullpathLabel->setText(PathAppend(project->path, *selected_items_text.begin()));
         int w = ui->fullpathLabel->fontMetrics().width(ui->fullpathLabel->text());
         if (w <= ui->fullpathLabel->width() - 8)
             ui->fullpathLabel->setAlignment(Qt::AlignLeft);
@@ -594,7 +588,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
         ui->fillPreview->setPixmap(QPixmap());
 
     // set tag line into edit
-    std::set<const eptg::taggable*> selected_files = project->files.get_all_by_name(selected_items_text);
+    std::set<const eptg::taggable<QString>*> selected_files = project->files.get_all_by_name(selected_items_text);
     QStringList common_tags = QStringListFromStd(project->get_common_tags(selected_files));
     ui->tagsEdit->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->tagsEdit->setFocus();
@@ -650,19 +644,19 @@ void MainWindow::on_menuOpenContainingFolder_triggered()
         ui->statusbar->showMessage("Nothing to open.", 5000);
         return;
     }
-    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
+    std::set<QString> titles = GetSelectedRowsTitles(selected_items);
 
 //    QStringList qpaths;
-//    for (const std::string & rel_path : titles)
-//        qpaths.append(PathAppend(QString::fromStdString(project->path), QString::fromStdString(rel_path)));
+//    for (const QString & rel_path : titles)
+//        qpaths.append(PathAppend(project->path, rel_path));
 
-    if (!OpenContainingFolder(QStringList(PathAppend(QString::fromStdString(project->path), QString::fromStdString(*titles.begin())))))
+    if (!OpenContainingFolder(QStringList(PathAppend(project->path, *titles.begin()))))
         ui->statusbar->showMessage("Can't open file browser.", 5000);
 }
 
 void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
 {
-    QString path = PathAppend(QString::fromStdString(project->path), ui->fillList->item(index.row())->text());
+    QString path = PathAppend(project->path, ui->fillList->item(index.row())->text());
 
     if (!OpenContainingFolder(QStringList(path)))
         ui->statusbar->showMessage("Can't open file browser.", 5000);
@@ -682,7 +676,7 @@ void MainWindow::GotoFirstUntagged()
 {
     for (int i=0 ; i<ui->fillList->count() ; i++)
     {
-        eptg::File * f = project->files.find(ui->fillList->item(i)->data(Qt::DisplayRole).toString().toStdString());
+        eptg::File<QString> * f = project->files.find(ui->fillList->item(i)->data(Qt::DisplayRole).toString());
         if (f == nullptr || f->inherited_tags.size() == 0)
         {
             ui->fillList->setCurrentRow(i);
@@ -698,13 +692,13 @@ void MainWindow::on_menuFindSimilar_triggered()
     find_similar_dialog->exec();
 }
 
-void MainWindow::ShowSimilarGroups(const std::vector<std::vector<std::string>> & groups)
+void MainWindow::ShowSimilarGroups(const std::vector<std::vector<QString>> & groups)
 {
     ui->fillList->clear();
     for (auto & group : groups)
     {
         for (auto & str : group)
-            ui->fillList->addItem(QString::fromStdString(str));
+            ui->fillList->addItem(str);
         ui->fillList->addItem("");
     }
     if (ui->fillList->count() > 0)
@@ -719,7 +713,7 @@ void MainWindow::on_menuProcess_triggered()
         ui->statusbar->showMessage("No file selected.", 5000);
         return;
     }
-    std::set<std::string> titles = GetSelectedRowsTitles(selected_items);
+    std::set<QString> titles = GetSelectedRowsTitles(selected_items);
 
     QDialog * process_dialog = new ProcessDialog(*this->project, titles, this);
     process_dialog->exec();
@@ -727,7 +721,7 @@ void MainWindow::on_menuProcess_triggered()
 
 void MainWindow::on_previewCheckBox_toggled(bool checked)
 {
-    std::set<std::string> selected_items_text = GetSelectedRowsTitles(ui->fillList->selectionModel()->selectedIndexes());
+    std::set<QString> selected_items_text = GetSelectedRowsTitles(ui->fillList->selectionModel()->selectedIndexes());
 
     // prepare preview
     if (checked)
@@ -740,7 +734,7 @@ void MainWindow::on_menuCopyFiles_triggered()
 {
     std::unique_ptr<CopyMoveDialog> copy_move_wizard(new CopyMoveDialog(*project, this, false));
     copy_move_wizard->exec();
-    if ( ! PathIsSub(QString::fromStdString(project->path), copy_move_wizard->preview->dest))
+    if ( ! PathIsSub(project->path, copy_move_wizard->preview->dest))
         ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
     else
         adjust_ui_for_project();
@@ -750,7 +744,7 @@ void MainWindow::on_menuMoveFiles_triggered()
 {
     std::unique_ptr<CopyMoveDialog> copy_move_wizard(new CopyMoveDialog(*project, this, true));
     copy_move_wizard->exec();
-    if ( ! PathIsSub(QString::fromStdString(project->path), copy_move_wizard->preview->dest))
+    if ( ! PathIsSub(project->path, copy_move_wizard->preview->dest))
         ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
 
     adjust_ui_for_project();

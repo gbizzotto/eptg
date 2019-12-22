@@ -17,14 +17,14 @@ class ProcessDialog : public QDialog, public Ui::Process
     Q_OBJECT
 
 private:
-    const eptg::Project & project;
-    std::set<std::string> rel_paths;
+    const eptg::Project<QString> & project;
+    std::set<QString> rel_paths;
     std::atomic_bool go_on;
 
     QStringList get_commands() const;
 
 public:
-    ProcessDialog(const eptg::Project & project, const std::set<std::string> & rel_paths, QWidget * parent);
+    ProcessDialog(const eptg::Project<QString> & project, const std::set<QString> & rel_paths, QWidget * parent);
 private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_plainTextEdit_textChanged();

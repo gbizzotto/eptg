@@ -41,12 +41,12 @@ QVariant GetData(const QTableWidgetItem *item);
 QVariant GetData(const QModelIndex      &item);
 
 template<typename ITEM_TYPE>
-std::set<std::string> GetSelectedRowsTitles(const QList<ITEM_TYPE> & selected_items)
+std::set<QString> GetSelectedRowsTitles(const QList<ITEM_TYPE> & selected_items)
 {
-    std::set<std::string> result;
+    std::set<QString> result;
     for (int i=0 ; i<selected_items.size() ; i++)
         if (GetColumn(selected_items[i]) == 0)
-            result.insert(GetData(selected_items[i]).toString().toStdString());
+            result.insert(GetData(selected_items[i]).toString());
     return result;
 }
 
@@ -166,5 +166,8 @@ public:
 };
 template<typename C>
 values_impl<C> values(const C & container) { return values_impl<C>(container); }
+
+QString     substring(          QString   str,    int idx);
+std::string substring(const std::string & str, size_t idx);
 
 #endif // HELPERS_HPP

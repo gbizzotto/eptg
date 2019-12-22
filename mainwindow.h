@@ -21,7 +21,7 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    void ShowSimilarGroups(const std::vector<std::vector<std::string>> & groups);
+    void ShowSimilarGroups(const std::vector<std::vector<QString>> & groups);
     inline const Ui::MainWindow* Getui() const { return ui; }
 protected:
     void showEvent(QShowEvent *ev);
@@ -33,7 +33,7 @@ private slots:
     void refresh_tag_list();
     bool OpenContainingFolder(const QStringList & paths) const;
     void GotoFirstUntagged();
-    void PreviewPictures(const std::set<std::string> & selected_items_text);
+    void PreviewPictures(const std::set<QString> & selected_items_text);
     void adjust_ui_for_project();
 
     void on_menuOpenRecent(QAction *action);
@@ -73,7 +73,7 @@ private slots:
     void on_menuMoveFiles_triggered();
 
 private:
-    std::unique_ptr<eptg::Project> project;
+    std::unique_ptr<eptg::Project<QString>> project;
     Ui::MainWindow *ui;
     QLabel *statusCountLabel;
     QLabel *statusPercentTaggedLabel;

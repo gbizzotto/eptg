@@ -19,7 +19,7 @@ QVariant GetData(const QModelIndex      &item) { return item .data(Qt::DisplayRo
 template<>
 QString & operator<<(QString & out, const std::string & t)
 {
-    return out.append(t.c_str());
+    return out.append(QString::fromStdString(t));
 }
 
 QString PathAppend(const QString & path1, const QString & path2)
@@ -66,4 +66,13 @@ bool images_close(const QImage & left, const QImage & right, int allowed_differe
                 return false;
         }
     return true;
+}
+
+QString substring(QString str, int idx)
+{
+    return str.remove(0, idx);
+}
+std::string substring(const std::string & str, size_t idx)
+{
+    return str.substr(idx);
 }

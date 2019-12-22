@@ -23,7 +23,6 @@ SOURCES += \
     mainwindow.cpp \
     mylineedit.cpp \
     mytablewidget.cpp \
-    project.cpp \
     search.cpp
 
 HEADERS += \

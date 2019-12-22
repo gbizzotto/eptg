@@ -15,11 +15,11 @@ class FindSimilarDialog : public QDialog, public Ui::FindSimilar
     Q_OBJECT
 
 private:
-    const eptg::Project & project;
+    const eptg::Project<QString> & project;
     std::atomic_bool go_on;
 
 public:
-    FindSimilarDialog(const eptg::Project & project, QWidget * parent);
+    FindSimilarDialog(const eptg::Project<QString> & project, QWidget * parent);
 private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_FindSimilar_finished(int result);
