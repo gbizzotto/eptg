@@ -44,8 +44,9 @@ bool in(const C & container, const typename C::value_type & v)
 {
     return find(container, v) != container.end();
 }
-template<typename C>
-bool in(const C & container, const typename C::mapped_type & v)
+template<typename C,
+         typename std::enable_if< ! std::is_same<typename C::value_type,typename C::key_type>{},int>::type = 0>
+bool in(const C & container, const typename C::key_type & v)
 {
     return find(container, v) != container.end();
 }
@@ -225,5 +226,8 @@ std::set<STR> sweep(const STR & full_path, const std::set<STR> & extensions)
 
     return result;
 }
+
+
+
 
 #endif // HELPERS_HPP

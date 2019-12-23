@@ -34,6 +34,7 @@ HEADERS += \
     MyWizardCopyMove.h \
     eptg/constants.hpp \
     eptg/helpers.hpp \
+    eptg/json.hpp \
     eptg/path.hpp \
     eptg/project.hpp \
     eptg/search.hpp \

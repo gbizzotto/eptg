@@ -321,6 +321,9 @@ void MainWindow::save_current_file_tags()
     std::set<QString> added_tags   = Added(common_tags, typed_tags);
     std::set<QString> removed_tags = Added(typed_tags, common_tags);
 
+    if (added_tags.size() == 0 && removed_tags.size() == 0)
+        return;
+
     for (int i=0 ; i<selected_items.size() ; i++)
     {
         int idx = selected_items[i].row();
@@ -421,6 +424,9 @@ void MainWindow::save_current_tag_tags()
             typed_tags.insert(tag);
     std::set<QString> added_tags   = Added(common_tags, typed_tags);
     std::set<QString> removed_tags = Added(typed_tags, common_tags);
+
+    if (added_tags.size() == 0 && removed_tags.size() == 0)
+        return;
 
     for (const QString & selected_tag_name : selected_names)
     {

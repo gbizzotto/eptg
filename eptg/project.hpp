@@ -8,20 +8,15 @@
 #include <memory>
 #include <algorithm>
 #include <variant>
+#include <fstream>
 
 #include <QImage>
-#include <QFile>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QString>
-#include <QDir>
-#include <QDirIterator>
 
 #include "eptg/search.hpp"
 #include "eptg/helpers.hpp"
 #include "eptg/constants.hpp"
 #include "eptg/path.hpp"
+#include "eptg/json.hpp"
 
 namespace eptg {
 
@@ -110,7 +105,7 @@ struct Project
         if ( ! path::is_sub(path, sub_project.path))
             return false;
 
-        STR sub_project_rel_path = QDir(path).relativeFilePath(sub_project.path);
+        STR sub_project_rel_path = path::relative(path, sub_project.path);
 
         std::set<STR> tags_used;
         for (const auto & [rel_path,file] : sub_project.files.collection)
@@ -278,89 +273,99 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
     for (const STR & str : sweep(full_path, std::set<STR>{"jpg", "jpeg", "png", "gif"}))
         project->files.insert(str, File<STR>());
 
-    //QDir base_path(full_path);
-    //QStringList filters = {"*.jpg", "*.jpeg", "*.png", "*.gif"};
-    //QDirIterator it(full_path, filters, QDir::Files, QDirIterator::Subdirectories);
-    //while (it.hasNext())
-    //    project->files.insert(base_path.relativeFilePath(it.next()), File<STR>());
-
-    // read json file
-    QFile file(path::append(full_path, PROJECT_FILE_NAME));
-    file.open(QIODevice::ReadOnly);
-    QByteArray rawData = file.readAll();
-    file.close();
-
-    QJsonDocument doc(QJsonDocument::fromJson(rawData));
-    QJsonObject json = doc.object();
-
-    const QJsonObject files = json["files"].toObject();
-    for (const auto & filename : files.keys())
+    std::string json_string;
     {
-        if ( ! project->files.has(filename)) // prune deleted files
-            continue;
-        File<STR> & file = project->files.insert(filename, File<STR>());
-        const auto & f = files[filename];
-        for (const auto tagname : f.toObject()["tags"].toArray())
-            if (tagname.toString().size() > 0)
-            {
-                file.insert_tag(tagname.toString());
-                project->tags.insert(tagname.toString(), Tag<STR>());
-            }
+        std::ifstream in(str_to<std::string>(path::append(full_path, PROJECT_FILE_NAME)));
+        std::stringstream buffer;
+        buffer << in.rdbuf();
+        json_string = buffer.str();
     }
-    const QJsonObject tags = json["tags"].toObject();
-    for (const auto & tag_name : tags.keys())
+
+    const char * c = json_string.c_str();
+    json_dict<STR> dict = json_read_dict<STR>(c);
+    if ( ! in(dict, "files") || ! std::holds_alternative<json_dict<STR>>(dict["files"]))
+        return project;
+    if ( ! in(dict, "tags" ) || ! std::holds_alternative<json_dict<STR>>(dict["tags" ]))
+        return project;
+    for(const auto & [rel_path,file_var] : std::get<json_dict<STR>>(dict["files"]))
+    {
+        if ( ! project->files.has(rel_path)) // prune deleted files
+            continue;
+        if ( ! std::holds_alternative<json_dict<STR>>(file_var))
+            continue;
+        json_dict<STR> file_dict = std::get<json_dict<STR>>(file_var);
+        File<STR> & file = project->files.insert(rel_path, File<STR>());
+        if ( ! in(file_dict, "tags" ) || ! std::holds_alternative<json_array<STR>>(file_dict["tags" ]))
+            continue;
+        for (const auto & tagname_var : std::get<json_array<STR>>(file_dict["tags"]))
+        {
+            if ( ! std::holds_alternative<STR>(tagname_var))
+                continue;
+            const STR & tagname = std::get<STR>(tagname_var);
+            if (tagname.size() > 0)
+            {
+                file.insert_tag(tagname);
+                project->tags.insert(tagname, Tag<STR>());
+            }
+        }
+    }
+    for(const auto & [tag_name,tag_var] : std::get<json_dict<STR>>(dict["tags"]))
     {
         Tag<STR> & tag = project->tags.insert(tag_name, Tag<STR>());
-        const auto & t = tags[tag_name];
-        for (const auto subtagname : t.toObject()["tags"].toArray())
-            if (subtagname.toString().size() > 0)
-                tag.insert_tag(subtagname.toString());
+        if ( ! std::holds_alternative<json_dict<STR>>(tag_var))
+            continue;
+        json_dict<STR> tag_dict = std::get<json_dict<STR>>(tag_var);
+        if ( ! in(tag_dict, "tags"))
+            continue;
+        for (const auto subtagname_var : std::get<json_array<STR>>(tag_dict["tags"]))
+        {
+            if ( ! std::holds_alternative<STR>(subtagname_var))
+                continue;
+            const STR & subtagname = std::get<STR>(subtagname_var);
+            if (subtagname.size() > 0)
+                tag.insert_tag(subtagname);
+        }
     }
+
     return project;
 }
 
 template<typename STR>
 void save(const std::unique_ptr<Project<STR>> & project)
 {
-    QJsonObject json_document;
+    eptg::json_dict<STR> files;
+    for (const auto & [id,file] : project->files.collection)
     {
-        QJsonObject files_json;
-        for (const auto & [id,file] : project->files.collection)
-        {
-            if (file.inherited_tags.size() == 0)
-                continue;
-            QJsonArray tags;
-            int i=0;
-            for (const auto & tag : file.inherited_tags)
-                tags.insert(i++, QJsonValue(tag));
-            QJsonObject file_json;
-            file_json.insert("tags", tags);
-            files_json.insert(id, file_json);
-        }
-        json_document.insert("files", files_json);
+        if (file.inherited_tags.size() == 0)
+            continue;
+        eptg::json_array<STR> tags;
+        for (const auto & tag : file.inherited_tags)
+            tags.push_back(tag);
+        eptg::json_dict<STR> ok;
+        ok.insert({"tags",tags});
+        files.insert({id,std::move(ok)});
     }
+    eptg::json_dict<STR> tags;
+    for (const auto & [id,tag] : project->tags.collection)
     {
-        QJsonObject tags_json;
-        for (const auto & [id,tag] : project->tags.collection)
-        {
-            if (tag.inherited_tags.size() == 0)
-                continue;
-            QJsonArray tags;
-            int i=0;
-            for (const auto & tag : tag.inherited_tags)
-                tags.insert(i++, QJsonValue(tag));
-            QJsonObject file_json;
-            file_json.insert("tags", tags);
-            tags_json.insert(id, file_json);
-        }
-        json_document.insert("tags", tags_json);
+        if (tag.inherited_tags.size() == 0)
+            continue;
+        eptg::json_array<STR> tag_tags;
+        for (const auto & tag : tag.inherited_tags)
+            tag_tags.push_back(tag);
+        eptg::json_dict<STR> ok;
+        ok.insert({"tags",tag_tags});
+        tags.insert({id,std::move(ok)});
     }
+    eptg::json_dict<STR> document;
+    document["files"] = files;
+    document["tags" ] = tags ;
 
-    QFile file(path::append(project->path, PROJECT_FILE_NAME));
-    file.open(QIODevice::WriteOnly);
-    file.write(QJsonDocument(json_document).toJson());
-    file.flush();
-    file.close();
+    std::string json_str = str_to<std::string>(eptg::json_to_str(document, 0));
+    std::ofstream out(str_to<std::string>(path::append(project->path, PROJECT_FILE_NAME)));
+    out.write(json_str.c_str(), json_str.size());
+    out.flush();
+    out.close();
 }
 
 template<typename STR>
