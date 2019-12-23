@@ -282,22 +282,22 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
     }
 
     const char * c = json_string.c_str();
-    json_dict<STR> dict = json_read_dict<STR>(c);
-    if ( ! in(dict, "files") || ! std::holds_alternative<json_dict<STR>>(dict["files"]))
+    json::dict<STR> dict = json::read_dict<STR>(c);
+    if ( ! in(dict, "files") || ! std::holds_alternative<json::dict<STR>>(dict["files"]))
         return project;
-    if ( ! in(dict, "tags" ) || ! std::holds_alternative<json_dict<STR>>(dict["tags" ]))
+    if ( ! in(dict, "tags" ) || ! std::holds_alternative<json::dict<STR>>(dict["tags" ]))
         return project;
-    for(const auto & [rel_path,file_var] : std::get<json_dict<STR>>(dict["files"]))
+    for(const auto & [rel_path,file_var] : std::get<json::dict<STR>>(dict["files"]))
     {
         if ( ! project->files.has(rel_path)) // prune deleted files
             continue;
-        if ( ! std::holds_alternative<json_dict<STR>>(file_var))
+        if ( ! std::holds_alternative<json::dict<STR>>(file_var))
             continue;
-        json_dict<STR> file_dict = std::get<json_dict<STR>>(file_var);
+        json::dict<STR> file_dict = std::get<json::dict<STR>>(file_var);
         File<STR> & file = project->files.insert(rel_path, File<STR>());
-        if ( ! in(file_dict, "tags" ) || ! std::holds_alternative<json_array<STR>>(file_dict["tags" ]))
+        if ( ! in(file_dict, "tags" ) || ! std::holds_alternative<json::array<STR>>(file_dict["tags" ]))
             continue;
-        for (const auto & tagname_var : std::get<json_array<STR>>(file_dict["tags"]))
+        for (const auto & tagname_var : std::get<json::array<STR>>(file_dict["tags"]))
         {
             if ( ! std::holds_alternative<STR>(tagname_var))
                 continue;
@@ -309,15 +309,15 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
             }
         }
     }
-    for(const auto & [tag_name,tag_var] : std::get<json_dict<STR>>(dict["tags"]))
+    for(const auto & [tag_name,tag_var] : std::get<json::dict<STR>>(dict["tags"]))
     {
         Tag<STR> & tag = project->tags.insert(tag_name, Tag<STR>());
-        if ( ! std::holds_alternative<json_dict<STR>>(tag_var))
+        if ( ! std::holds_alternative<json::dict<STR>>(tag_var))
             continue;
-        json_dict<STR> tag_dict = std::get<json_dict<STR>>(tag_var);
+        json::dict<STR> tag_dict = std::get<json::dict<STR>>(tag_var);
         if ( ! in(tag_dict, "tags"))
             continue;
-        for (const auto subtagname_var : std::get<json_array<STR>>(tag_dict["tags"]))
+        for (const auto subtagname_var : std::get<json::array<STR>>(tag_dict["tags"]))
         {
             if ( ! std::holds_alternative<STR>(subtagname_var))
                 continue;
@@ -333,35 +333,35 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
 template<typename STR>
 void save(const std::unique_ptr<Project<STR>> & project)
 {
-    eptg::json_dict<STR> files;
+    eptg::json::dict<STR> files;
     for (const auto & [id,file] : project->files.collection)
     {
         if (file.inherited_tags.size() == 0)
             continue;
-        eptg::json_array<STR> tags;
+        eptg::json::array<STR> tags;
         for (const auto & tag : file.inherited_tags)
             tags.push_back(tag);
-        eptg::json_dict<STR> ok;
+        eptg::json::dict<STR> ok;
         ok.insert({"tags",tags});
         files.insert({id,std::move(ok)});
     }
-    eptg::json_dict<STR> tags;
+    eptg::json::dict<STR> tags;
     for (const auto & [id,tag] : project->tags.collection)
     {
         if (tag.inherited_tags.size() == 0)
             continue;
-        eptg::json_array<STR> tag_tags;
+        eptg::json::array<STR> tag_tags;
         for (const auto & tag : tag.inherited_tags)
             tag_tags.push_back(tag);
-        eptg::json_dict<STR> ok;
+        eptg::json::dict<STR> ok;
         ok.insert({"tags",tag_tags});
         tags.insert({id,std::move(ok)});
     }
-    eptg::json_dict<STR> document;
+    eptg::json::dict<STR> document;
     document["files"] = files;
     document["tags" ] = tags ;
 
-    std::string json_str = str_to<std::string>(eptg::json_to_str(document, 0));
+    std::string json_str = str_to<std::string>(eptg::json::to_str(document, 0));
     std::ofstream out(str_to<std::string>(path::append(project->path, PROJECT_FILE_NAME)));
     out.write(json_str.c_str(), json_str.size());
     out.flush();

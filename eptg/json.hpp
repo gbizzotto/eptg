@@ -5,41 +5,41 @@
 #include <vector>
 #include <variant>
 
-namespace eptg
-{
+namespace eptg {
+namespace json {
 
 template<typename STR>
-struct json_dict;
+struct dict;
 template<typename STR>
-struct json_array;
+struct array;
 
 template<typename STR>
-using json_var = std::variant<json_dict<STR>,json_array<STR>,int,float,STR>;
+using var = std::variant<dict<STR>,array<STR>,int,float,STR>;
 
 template<typename STR>
-struct json_dict : public std::map<STR,json_var<STR>>
-{
-};
-
-template<typename STR>
-struct json_array : public std::vector<json_var<STR>>
+struct dict : public std::map<STR,var<STR>>
 {
 };
 
 template<typename STR>
-json_dict<STR> json_read_dict(const char *& c);
-template<typename STR>
-json_array<STR> json_read_array(const char *& c);
-template<typename STR>
-STR json_read_string(const char *& c);
+struct array : public std::vector<var<STR>>
+{
+};
 
-inline int json_read_int(const char *& c)
+template<typename STR>
+dict<STR> read_dict(const char *& c);
+template<typename STR>
+array<STR> read_array(const char *& c);
+template<typename STR>
+STR read_string(const char *& c);
+
+inline int read_int(const char *& c)
 {
     return std::atoi(c);
     while ((*c >= 0 && *c <= 9) || *c == '-')
         c++;
 }
-inline void json_skip_separators(const char *& c)
+inline void skip_separators(const char *& c)
 {
     while (*c == ' ' || *c == '\t' || *c == '\n' || *c == '\r')
         c++;
@@ -48,23 +48,23 @@ inline void json_skip_separators(const char *& c)
 }
 
 template<typename STR>
-json_var<STR> json_read_var(const char *& c)
+var<STR> read_var(const char *& c)
 {
-    json_skip_separators(c);
+    skip_separators(c);
     if (*c == '{')
-        return json_read_dict<STR>(c);
+        return read_dict<STR>(c);
     else if (*c == '[')
-        return json_read_array<STR>(c);
+        return read_array<STR>(c);
     else if (*c == '"')
-        return json_read_string<STR>(c);
+        return read_string<STR>(c);
     else if ((*c >= 0 && *c <= 9) || *c == '-')
-        return json_read_int(c);
+        return read_int(c);
     else
         throw;
 }
 
 template<typename STR>
-STR json_read_string(const char *& c)
+STR read_string(const char *& c)
 {
     STR str;
     if (*c != '"')
@@ -79,30 +79,29 @@ STR json_read_string(const char *& c)
     return str;
 }
 
-int json_read_int(const char *& c);
 
 template<typename STR>
-json_dict<STR> json_read_dict(const char *& c)
+dict<STR> read_dict(const char *& c)
 {
-    json_skip_separators(c);
+    skip_separators(c);
 
     if (*c != '{')
         throw;
 
-    json_dict<STR> result;
+    dict<STR> result;
     for (c++ ; *c != '}' ; )
     {
-        json_skip_separators(c);
+        skip_separators(c);
         if (*c != '"')
             throw;
-        STR key = json_read_string<STR>(c);
-        json_skip_separators(c);
+        STR key = read_string<STR>(c);
+        skip_separators(c);
         if (*c != ':')
             throw;
         c++; // skip ':'
-        json_skip_separators(c);
-        result.insert({key, json_read_var<STR>(c)});
-        json_skip_separators(c);
+        skip_separators(c);
+        result.insert({key, read_var<STR>(c)});
+        skip_separators(c);
         if (*c == ',')
             c++;
     }
@@ -111,19 +110,19 @@ json_dict<STR> json_read_dict(const char *& c)
 }
 
 template<typename STR>
-json_array<STR> json_read_array(const char *& c)
+array<STR> read_array(const char *& c)
 {
-    json_skip_separators(c);
+    skip_separators(c);
 
     if (*c != '[')
         throw;
 
-    json_array<STR> result;
+    array<STR> result;
     for (c++ ; *c != ']' ; )
     {
-        json_skip_separators(c);
-        result.push_back(json_read_var<STR>(c));
-        json_skip_separators(c);
+        skip_separators(c);
+        result.push_back(read_var<STR>(c));
+        skip_separators(c);
         if (*c == ',')
             c++;
     }
@@ -141,17 +140,17 @@ STR make_indent(int indent)
 }
 
 template<typename STR>
-STR json_to_str(const STR & str)
+STR to_str(const STR & str)
 {
     return STR("\"").append(str).append("\"");
 }
 template<typename STR>
-STR json_to_str(const int v)
+STR to_str(const int v)
 {
     return STR(std::to_string(v).c_str());
 }
 template<typename STR>
-STR json_to_str(const json_dict<STR> & dict, int indent=0)
+STR to_str(const dict<STR> & dict, int indent=0)
 {
     STR result;
     result.append("{\n");
@@ -159,9 +158,9 @@ STR json_to_str(const json_dict<STR> & dict, int indent=0)
     for (auto it=dict.begin(),end=dict.end() ; it!=end ; )
     {
         result.append(make_indent<STR>(indent));
-        result.append(json_to_str(it->first));
+        result.append(to_str(it->first));
         result.append(": ");
-        result.append(json_to_str(it->second, indent+1));
+        result.append(to_str(it->second, indent+1));
         ++it;
         if (it != end)
             result.append(",");
@@ -173,7 +172,7 @@ STR json_to_str(const json_dict<STR> & dict, int indent=0)
     return result;
 }
 template<typename STR>
-STR json_to_str(const json_array<STR> & dict, int indent=0)
+STR to_str(const array<STR> & dict, int indent=0)
 {
     STR result;
     result.append("[\n");
@@ -181,7 +180,7 @@ STR json_to_str(const json_array<STR> & dict, int indent=0)
     for (auto it=dict.begin(),end=dict.end() ; it!=end ; )
     {
         result.append(make_indent<STR>(indent));
-        result.append(json_to_str(*it));
+        result.append(to_str(*it));
         ++it;
         if (it != end)
             result.append(",");
@@ -194,20 +193,20 @@ STR json_to_str(const json_array<STR> & dict, int indent=0)
 }
 
 template<typename STR>
-STR json_to_str(const json_var<STR> & var, int indent=0)
+STR to_str(const var<STR> & var, int indent=0)
 {
     if (std::holds_alternative<int>(var))
-        return json_to_str<STR>(std::get<int>(var));
+        return to_str<STR>(std::get<int>(var));
     else if (std::holds_alternative<STR>(var))
-        return json_to_str<STR>(std::get<STR>(var));
-    else if (std::holds_alternative<json_dict<STR>>(var))
-        return json_to_str(std::get<json_dict<STR>>(var), indent);
-    else if (std::holds_alternative<json_array<STR>>(var))
-        return json_to_str(std::get<json_array<STR>>(var), indent);
+        return to_str<STR>(std::get<STR>(var));
+    else if (std::holds_alternative<dict<STR>>(var))
+        return to_str(std::get<dict<STR>>(var), indent);
+    else if (std::holds_alternative<array<STR>>(var))
+        return to_str(std::get<array<STR>>(var), indent);
     else
         return "";
 }
 
-} // namespace
+}} // namespace
 
 #endif // include guard
