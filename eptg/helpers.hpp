@@ -210,8 +210,9 @@ std::set<STR> sweep(const STR & full_path, const std::set<STR> & extensions)
 #if has_stdfs
     for(const auto & p: eptg::fs::recursive_directory_iterator(str_to<std::string>(full_path)))
         if (eptg::fs::is_regular_file(p))
-            if (in(extensions, to_lower(str_to<STR>(substring(p.path().extension(), 1)))))
-                result.insert(str_to<STR>(path::relative(full_path, str_to<STR>(p.path()))));
+            if (p.path().extension().string().size() > 0)
+                if (in(extensions, to_lower(str_to<STR>(substring(p.path().extension(), 1)))))
+                    result.insert(str_to<STR>(path::relative(full_path, str_to<STR>(p.path()))));
 #else
     decltype(extensions) extensions_for_qt;
     std::transform(extensions.begin(), extensions.end(), std::inserter(extensions_for_qt), [](const STR & str){ return STR("*.").append(str); });

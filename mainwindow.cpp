@@ -674,19 +674,22 @@ void MainWindow::on_previewCheckBox_toggled(bool checked)
 void MainWindow::on_menuCopyFiles_triggered()
 {
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, false));
-    copy_move_wizard->exec();
-    if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
-        this->add_open_recent(copy_move_wizard->preview->dest);
-    else
-        adjust_ui_for_project();
+    if (copy_move_wizard->exec())
+    {
+        if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
+            this->add_open_recent(copy_move_wizard->preview->dest);
+        else
+            adjust_ui_for_project();
+    }
 }
 
 void MainWindow::on_menuMoveFiles_triggered()
 {
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, true));
-    copy_move_wizard->exec();
-    if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
-        this->add_open_recent(copy_move_wizard->preview->dest);
-
-    adjust_ui_for_project();
+    if (copy_move_wizard->exec())
+    {
+        if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
+            this->add_open_recent(copy_move_wizard->preview->dest);
+        adjust_ui_for_project();
+    }
 }

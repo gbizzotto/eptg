@@ -351,7 +351,7 @@
    </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
-     <string>File</string>
+     <string>Project</string>
     </property>
     <widget class="QMenu" name="menuOpenRecent">
      <property name="title">
@@ -360,11 +360,6 @@
     </widget>
     <addaction name="menuOpenFolder"/>
     <addaction name="menuOpenRecent"/>
-    <addaction name="separator"/>
-    <addaction name="menuOpenContainingFolder"/>
-    <addaction name="actionGoto_first_untagged"/>
-    <addaction name="separator"/>
-    <addaction name="menuQuit"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -372,15 +367,31 @@
     </property>
     <addaction name="menuFindSimilar"/>
     <addaction name="menuProcess"/>
+   </widget>
+   <widget class="QMenu" name="menuEPTG">
+    <property name="title">
+     <string>EPTG</string>
+    </property>
+    <addaction name="menuQuit"/>
+   </widget>
+   <widget class="QMenu" name="menuFile_2">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="menuOpenContainingFolder"/>
+    <addaction name="actionGoto_first_untagged"/>
+    <addaction name="separator"/>
     <addaction name="menuCopyFiles"/>
     <addaction name="menuMoveFiles"/>
    </widget>
+   <addaction name="menuEPTG"/>
    <addaction name="menuFile"/>
+   <addaction name="menuFile_2"/>
    <addaction name="menuTools"/>
   </widget>
   <action name="menuOpenFolder">
    <property name="text">
-    <string>Open Folder</string>
+    <string>Open</string>
    </property>
   </action>
   <action name="actionlj">
@@ -424,12 +435,12 @@
   </action>
   <action name="menuCopyFiles">
    <property name="text">
-    <string>Copy files...</string>
+    <string>Copy...</string>
    </property>
   </action>
   <action name="menuMoveFiles">
    <property name="text">
-    <string>Move files...</string>
+    <string>Move...</string>
    </property>
   </action>
  </widget>
