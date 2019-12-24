@@ -16,9 +16,15 @@ struct CopyMoveData
         Preserve,
         Tag,
     };
+    enum WhichFiles
+    {
+        Selected,
+        Shown,
+        All,
+    };
 
     bool is_move;
-    bool is_selected;
+    WhichFiles which_files;
     STR dest;
     TreeType tree_type;
     bool overwrite;
@@ -27,9 +33,9 @@ struct CopyMoveData
     std::map<STR,STR> files;
     size_t name_collision_count;
 
-    inline CopyMoveData(const STR & base_path, bool move, bool selected, STR dest, TreeType tree, bool overwrite, STR tag="")
+    inline CopyMoveData(const STR & base_path, bool move, WhichFiles which_files, STR dest, TreeType tree, bool overwrite, STR tag="")
         : is_move(move)
-        , is_selected(selected)
+        , which_files(which_files)
         , dest(path::is_relative(dest) ? path::append(base_path, dest) : std::move(dest))
         , tree_type(tree)
         , overwrite(overwrite)
@@ -40,7 +46,7 @@ struct CopyMoveData
     inline bool operator==(const CopyMoveData & other) const
     {
         return is_move     == other.is_move
-            && is_selected == other.is_selected
+            && which_files == other.which_files
             && dest        == other.dest
             && tree_type   == other.tree_type
             && overwrite   == other.overwrite
@@ -52,8 +58,8 @@ struct CopyMoveData
         return !operator==(other);
     }
 
-    template<typename C_all, typename C_sel, typename Project>
-    void process(const Project & project, const C_all & all_files, const C_sel & selected_files)
+    template<typename C_all, typename C_shown, typename C_sel, typename Project>
+    void process(const Project & project, const C_all & all_files, const C_shown & shown_files, const C_sel & selected_files)
     {
         auto add_file = [this,&project](const STR & rel_path)
             {
@@ -71,10 +77,13 @@ struct CopyMoveData
                 files.emplace(new_rel_path, rel_path);
             };
 
-        if (is_selected)
+        if (which_files == WhichFiles::Selected)
             for (const STR & rel_path : selected_files)
                 add_file(rel_path);
-        else
+        else if (which_files == WhichFiles::Shown)
+            for (const STR & rel_path : shown_files)
+                add_file(rel_path);
+        else if (which_files == WhichFiles::All)
             for (const STR & rel_path : all_files)
                 add_file(rel_path);
     }

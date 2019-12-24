@@ -35,9 +35,16 @@
      </widget>
     </item>
     <item>
-     <widget class="QRadioButton" name="allFilesRadio">
+     <widget class="QRadioButton" name="shownFilesRadio">
       <property name="text">
-       <string>All files</string>
+       <string>All files shown</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QRadioButton" name="projectFilesRadio">
+      <property name="text">
+       <string>All files in project</string>
       </property>
      </widget>
     </item>

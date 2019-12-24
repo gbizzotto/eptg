@@ -343,9 +343,9 @@ struct Project
             STR new_rel_path = std::get<0>(filenames_tuple);
             STR old_rel_path = std::get<1>(filenames_tuple);
 
-            eptg::fs::create_directories(str_to<std::string>(path::append(copy_move_data.dest, new_rel_path)));
+            eptg::fs::create_directories(path::append(str_to<std::string>(copy_move_data.dest), eptg::fs::path(str_to<std::string>(new_rel_path)).parent_path()));
 
-            if ( ! eptg::fs::exists(str_to<std::string>(path::append(copy_move_data.dest, new_rel_path))))
+            if ( ! eptg::fs::exists(str_to<std::string>(path::append(path , old_rel_path))))
                 continue;
 
             // actual files
@@ -400,7 +400,7 @@ void sweep(Project<STR> & project)
     // sweep directory
     if ( ! eptg::fs::exists(str_to<std::string>(project.path)))
         return;
-    for (const STR & str : sweep(project.path, std::set<STR>{"jpg", "jpeg", "png", "gif"}))
+    for (const STR & str : sweep(project.path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif"}))
         project.files.insert(str, File<STR>());
 }
 

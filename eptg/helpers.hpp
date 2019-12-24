@@ -2,6 +2,7 @@
 #define HELPERS_HPP
 
 #include <vector>
+#include <deque>
 #include <set>
 #include <string>
 #include <functional>
@@ -9,6 +10,7 @@
 
 #include <QImage>
 #include <QTableWidgetItem>
+#include <QListWidget>
 
 #include "eptg/path.hpp"
 #include "eptg/fs.hpp"
@@ -55,7 +57,7 @@ QVariant get_data(const QTableWidgetItem *item);
 QVariant get_data(const QModelIndex      &item);
 
 template<typename ITEM_TYPE>
-std::set<QString> names_from_list_selection(const QList<ITEM_TYPE> & selected_items)
+std::set<QString> names_from_list(const QList<ITEM_TYPE> & selected_items)
 {
     std::set<QString> result;
     for (int i=0 ; i<selected_items.size() ; i++)
@@ -63,6 +65,8 @@ std::set<QString> names_from_list_selection(const QList<ITEM_TYPE> & selected_it
             result.insert(get_data(selected_items[i]).toString());
     return result;
 }
+std::set<QString> names_from_list(const QListWidget * list);
+
 
 template<typename C,
          typename std::enable_if<std::is_same<typename C::value_type,std::string>{},int>::type = 0>
@@ -201,24 +205,28 @@ template<>     QString str_to<    QString>(const     QString & str);
 template<> std::string str_to<std::string>(const std::string & str);
 template<> std::string str_to<std::string>(const     QString & str);
 
-
 template<typename STR>
 std::set<STR> sweep(const STR & full_path, const std::set<STR> & extensions)
 {
     std::set<STR> result;
 
 #if has_stdfs
-    for(const auto & p: eptg::fs::recursive_directory_iterator(str_to<std::string>(full_path)))
-        if (eptg::fs::is_regular_file(p))
-            if (p.path().extension().string().size() > 0)
-                if (in(extensions, to_lower(str_to<STR>(substring(p.path().extension(), 1)))))
-                    result.insert(str_to<STR>(path::relative(full_path, str_to<STR>(p.path()))));
+    for (std::deque<eptg::fs::path> directories{{str_to<std::string>(full_path)}} ; ! directories.empty() ; directories.pop_front())
+        try {
+            for(eptg::fs::directory_iterator dit(directories.front()) ; dit != eptg::fs::directory_iterator() ; ++dit)
+                if(eptg::fs::is_directory(dit->path()))
+                    directories.push_back(dit->path());
+                else if (eptg::fs::is_regular_file(dit->path()))
+                    if (in(extensions, to_lower(str_to<STR>(dit->path().extension()))))
+                        result.insert(path::relative(full_path, str_to<STR>(dit->path().string())));
+        }
+        catch(...)
+        {}
 #else
     decltype(extensions) extensions_for_qt;
-    std::transform(extensions.begin(), extensions.end(), std::inserter(extensions_for_qt), [](const STR & str){ return STR("*.").append(str); });
+    std::transform(extensions.begin(), extensions.end(), std::inserter(extensions_for_qt), [](const STR & str){ return STR("*").append(str); });
     QDir base_path(full_path);
-    QStringList filters = {"*.jpg", "*.jpeg", "*.png", "*.gif"};
-    QDirIterator it(full_path, filters, QDir::Files, QDirIterator::Subdirectories);
+    QDirIterator it(full_path, extensions_for_qt, QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext())
         result.insert(str_to<STR>(it.next()));
 #endif

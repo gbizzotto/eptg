@@ -22,7 +22,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     void show_similar_groups(const std::vector<std::vector<QString>> & groups);
-    inline const Ui::MainWindow* Getui() const { return ui; }
+    inline const Ui::MainWindow* get_ui() const { return ui; }
     void save_current_file_tags();
     void open(const QString & pathName);
     void add_open_recent(const QString & pathName);

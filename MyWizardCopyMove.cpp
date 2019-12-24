@@ -20,12 +20,14 @@ MyWizardCopyMove::MyWizardCopyMove(eptg::Project<QString> & project, QWidget * p
     setupUi(this);
     go_on.store(false);
 
-    int selected_files_count = main_window->Getui()->fillList->selectionModel()->selectedIndexes().count();
+    int selected_files_count = main_window->get_ui()->fillList->selectionModel()->selectedIndexes().count();
+    int shown_files_count = names_from_list(main_window->get_ui()->fillList).size();
     this->selectedFilesRadio->setEnabled(selected_files_count != 0);
-    this->allFilesRadio->setChecked(selected_files_count == 0);
+    this->shownFilesRadio->setChecked(selected_files_count == 0);
     this->setWindowTitle(is_move ? "Move files" : "Copy files");
-    this->selectedFilesRadio->setText(this->selectedFilesRadio->text() + " (" + QString::number(main_window->Getui()->fillList->selectionModel()->selectedIndexes().count()) + ")");
-    this->allFilesRadio->setText(this->allFilesRadio->text() + " (" + QString::number(main_window->Getui()->fillList->count()) + ")");
+    this->selectedFilesRadio->setText(this->selectedFilesRadio->text() + " (" + QString::number(selected_files_count) + ")");
+    this->   shownFilesRadio->setText(this->   shownFilesRadio->text() + " (" + QString::number(shown_files_count   ) + ")");
+    this-> projectFilesRadio->setText(this-> projectFilesRadio->text() + " (" + QString::number(project.files.size()) + ")");
     this->destFolderLineEdit->setText(project.path);
 }
 
@@ -64,7 +66,12 @@ void MyWizardCopyMove::make_preview()
     auto new_preview = std::make_unique<eptg::CopyMoveData<QString>>(
          project.path
         ,is_move
-        ,selectedFilesRadio->isChecked()
+        , selectedFilesRadio->isChecked()
+         ?eptg::CopyMoveData<QString>::WhichFiles::Selected
+         :( shownFilesRadio->isChecked()
+           ?eptg::CopyMoveData<QString>::WhichFiles::Shown
+           :eptg::CopyMoveData<QString>::WhichFiles::All
+          )
         ,destFolderLineEdit->text()
         ,treeNoneRadio->isChecked()?eptg::CopyMoveData<QString>::TreeType::None:(this->treePreserveRadio->isChecked()?eptg::CopyMoveData<QString>::TreeType::Preserve:eptg::CopyMoveData<QString>::TreeType::Tag)
         ,overwriteRadio->isChecked()
@@ -76,7 +83,8 @@ void MyWizardCopyMove::make_preview()
         preview.swap(new_preview);
         preview->process(project
                         ,keys(project.files.collection)
-                        ,names_from_list_selection(main_window->Getui()->fillList->selectionModel()->selectedIndexes())
+                        ,names_from_list(main_window->get_ui()->fillList)
+                        ,names_from_list(main_window->get_ui()->fillList->selectionModel()->selectedIndexes())
                         );
     }
 }
@@ -99,9 +107,12 @@ void MyWizardCopyMove::on_CopyMoveWizard_currentIdChanged(int page_id)
     {
         make_preview();
         actionLabel->setText(preview->is_move ? "Move files" : "Copy files");
-        whatFilesLabel->setText(preview->is_selected
-                               ?"Selected files (" + QString::number(main_window->Getui()->fillList->selectionModel()->selectedIndexes().count()) + ")"
-                               :"All files (" + QString::number(project.files.size()) + ")"
+        whatFilesLabel->setText((preview->which_files == eptg::CopyMoveData<QString>::WhichFiles::Selected)
+                               ?"Selected files (" + QString::number(main_window->get_ui()->fillList->selectionModel()->selectedIndexes().count()) + ")"
+                               :((preview->which_files == eptg::CopyMoveData<QString>::WhichFiles::Shown)
+                                 ?"All shown (" + QString::number(names_from_list(main_window->get_ui()->fillList).size()) + ")"
+                                 :"All files (" + QString::number(project.files.size()) + ")"
+                                )
                                );
         whereToLabel->setText(preview->dest);
 

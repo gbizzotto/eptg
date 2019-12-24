@@ -7,6 +7,12 @@
     namespace eptg {
     namespace fs = std::filesystem;
     }
+#elif __has_include(<tr2/filesystem>)
+#   include <tr2/filesystem>
+#   define has_stdfs 1
+    namespace eptg {
+    namespace fs = std::tr2::filesystem;
+    }
 #elif __has_include(<experimental/filesystem>)
 #   include <experimental/filesystem>
 #   define has_stdfs 1

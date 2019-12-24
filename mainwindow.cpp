@@ -265,7 +265,7 @@ void MainWindow::adjust_ui_for_project()
 void MainWindow::refresh_tag_list()
 {
     // save selected items
-    std::set<QString> selected_tag_names = names_from_list_selection(ui->tagList->selectedItems());
+    std::set<QString> selected_tag_names = names_from_list(ui->tagList->selectedItems());
 
     // update list
     ui->tagList->clearContents();
@@ -294,7 +294,7 @@ void MainWindow::save_current_file_tags()
     if ( ! project)
         return;
 
-    auto selected_taggables_names = names_from_list_selection(ui->fillList->selectionModel()->selectedIndexes());
+    auto selected_taggables_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
     auto typed_tags = unique_tokens(ui->tagsEdit->text());
 
     project->set_common_tags<false>(selected_taggables_names, typed_tags,
@@ -371,7 +371,7 @@ void MainWindow::save_current_tag_tags()
     if ( ! project)
         return;
 
-    auto selected_taggables_names = names_from_list_selection(ui->tagList->selectedItems());
+    auto selected_taggables_names = names_from_list(ui->tagList->selectedItems());
     auto typed_tags = unique_tokens(ui->editTagTags->text());
 
     project->set_common_tags<true>(selected_taggables_names, typed_tags,
@@ -426,7 +426,7 @@ void MainWindow::on_editTagTags_returnPressed()
 
 void MainWindow::on_tagList_itemSelectionChanged()
 {
-    std::set<QString> selected_names = names_from_list_selection(ui->tagList->selectedItems());
+    std::set<QString> selected_names = names_from_list(ui->tagList->selectedItems());
 
     if (selected_names.size() == 0)
     {
@@ -504,7 +504,7 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 
 void MainWindow::on_fillList_itemSelectionChanged()
 {
-    std::set<QString> selected_names = names_from_list_selection(ui->fillList->selectionModel()->selectedIndexes());
+    std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
 
     // display full path
     if (selected_names.size() == 0)
@@ -587,7 +587,7 @@ void MainWindow::on_menuOpenContainingFolder_triggered()
         ui->statusbar->showMessage("Nothing to open.", 5000);
         return;
     }
-    std::set<QString> selected_names = names_from_list_selection(selected_items);
+    std::set<QString> selected_names = names_from_list(selected_items);
 
 //    QStringList qpaths;
 //    for (const QString & rel_path : titles)
@@ -655,14 +655,14 @@ void MainWindow::on_menuProcess_triggered()
         ui->statusbar->showMessage("No file selected.", 5000);
         return;
     }
-    std::set<QString> selected_names = names_from_list_selection(selected_items);
+    std::set<QString> selected_names = names_from_list(selected_items);
 
     std::make_unique<MyDialogProcess>(*this->project, selected_names, this)->exec();
 }
 
 void MainWindow::on_previewCheckBox_toggled(bool checked)
 {
-    std::set<QString> selected_names = names_from_list_selection(ui->fillList->selectionModel()->selectedIndexes());
+    std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
 
     // prepare preview
     if (checked)

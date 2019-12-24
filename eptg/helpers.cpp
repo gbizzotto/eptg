@@ -25,6 +25,14 @@ QString & operator<<(QString & out, const std::string & t)
     return out.append(QString::fromStdString(t));
 }
 
+std::set<QString> names_from_list(const QListWidget * list)
+{
+    std::set<QString> result;
+    for (int i=0 ; i<list->count() ; i++)
+        if (list->item(i)->data(Qt::DisplayRole).toString().size() > 0)
+            result.insert(list->item(i)->data(Qt::DisplayRole).toString());
+    return result;
+}
 
 bool images_close(const QImage & left, const QImage & right, int allowed_difference)
 {
