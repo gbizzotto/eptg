@@ -14,7 +14,7 @@ QString append(const QString & path1, const QString & path2)
 }
 bool is_sub(const QString & path, const QString & maybe_sub_path)
 {
-     return (QDir(maybe_sub_path).absolutePath().startsWith(QDir(path).absolutePath()));
+    return is_relative(maybe_sub_path) || (QDir(maybe_sub_path).absolutePath().startsWith(QDir(path).absolutePath()));
 }
 QString up(QString path)
 {
@@ -35,7 +35,10 @@ QString relative(const QString & base, const QString & sub)
         base_abs.append('/');
     return QDir(sub).absolutePath().remove(0, base_abs.size());
 }
-
+bool is_relative(const QString & path)
+{
+    return path.size() == 0 || ! path.startsWith("/");
+}
 std::string append(std::string path1, const std::string & path2)
 {
     if (path1.empty())
@@ -49,12 +52,18 @@ std::string append(std::string path1, const std::string & path2)
 
 bool is_sub(std::string path , std::string maybe_sub_path)
 {
-    if (path.empty())
+    if (is_relative(maybe_sub_path))
         return true;
-    if (path.back() != PATH_SEPARATOR_CHAR)
+    if (is_relative(path))
+        return false;
+    // both are absolute
+    if (path.empty())
+        path.append(PATH_SEPARATOR_STR);
+    else if (path.back() != PATH_SEPARATOR_CHAR)
         path.append(PATH_SEPARATOR_STR);
     if (maybe_sub_path.back() != PATH_SEPARATOR_CHAR)
         maybe_sub_path.append(PATH_SEPARATOR_STR);
+    // both start and end with '/'
     if (maybe_sub_path.size() < path.size())
         return false;
     return maybe_sub_path.substr(0, path.size()) == path;
@@ -81,6 +90,10 @@ std::string relative(std::string base, const std::string & sub)
     if (sub.substr(0, base.size()) != base)
         return "";
     return sub.substr(base.size());
+}
+bool is_relative(const std::string & path)
+{
+    return path.size() == 0 || path[0] != '/';
 }
 
 } // namespace

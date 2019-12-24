@@ -84,14 +84,15 @@ template<typename STR>
 dict<STR> read_dict(const char *& c)
 {
     skip_separators(c);
-
     if (*c != '{')
         throw;
-
     dict<STR> result;
-    for (c++ ; *c != '}' ; )
+    c++;
+    for (;;)
     {
         skip_separators(c);
+        if (*c == '}')
+            break;
         if (*c != '"')
             throw;
         STR key = read_string<STR>(c);
@@ -113,14 +114,15 @@ template<typename STR>
 array<STR> read_array(const char *& c)
 {
     skip_separators(c);
-
     if (*c != '[')
         throw;
-
     array<STR> result;
-    for (c++ ; *c != ']' ; )
+    c++;
+    for (;;)
     {
         skip_separators(c);
+        if (*c == ']')
+            break;
         result.push_back(read_var<STR>(c));
         skip_separators(c);
         if (*c == ',')

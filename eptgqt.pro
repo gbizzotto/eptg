@@ -33,6 +33,8 @@ HEADERS += \
     MyWidgetTable.h \
     MyWizardCopyMove.h \
     eptg/constants.hpp \
+    eptg/copy_move_data.hpp \
+    eptg/fs.hpp \
     eptg/helpers.hpp \
     eptg/json.hpp \
     eptg/path.hpp \

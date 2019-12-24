@@ -117,3 +117,15 @@ std::string str_to<std::string>(const QString & str)
 {
     return str.toStdString();
 }
+
+std::set<QString> unique_tokens(const QString & str)
+{
+    std::set<QString> typed_tags;
+    for (const QString & tag : str.split(' '))
+    {
+        if (tag.size() == 0)
+            continue;
+        typed_tags.insert(tag);
+    }
+    return typed_tags;
+}

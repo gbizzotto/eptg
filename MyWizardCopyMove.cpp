@@ -1,4 +1,6 @@
 
+#include <memory>
+
 #include <QFileDialog>
 
 #include "MyWizardCopyMove.h"
@@ -37,17 +39,17 @@ void MyWizardCopyMove::on_toolButton_clicked()
         destFolderLineEdit->setText(path);
 }
 
-void MyWizardCopyMove::on_destFolderLineEdit_textChanged(const QString &arg1)
+void MyWizardCopyMove::on_destFolderLineEdit_textChanged(const QString &edited_text)
 {
     QStringList messages;
 
-    if ( ! path::is_sub(project.path, arg1))
+    if ( ! path::is_sub(project.path, edited_text))
     {
         messages += "- <font color=red>"
                     "Warning: Moving files out of this project.<br/>"
                     "New project will be added to menu File>Open Recent."
                     "</font>";
-        if (path::parent_has(arg1, QString(PROJECT_FILE_NAME)))
+        if (path::parent_has(edited_text, QString(PROJECT_FILE_NAME)))
             messages += "- <font color=black>"
                         "Warning: Moving files to an existing project.<br/>"
                         "Destination project will be updated to include the new files."
@@ -59,12 +61,12 @@ void MyWizardCopyMove::on_destFolderLineEdit_textChanged(const QString &arg1)
 
 void MyWizardCopyMove::make_preview()
 {
-    auto new_preview = std::make_unique<CopyMoveData>(
-         project
+    auto new_preview = std::make_unique<eptg::CopyMoveData<QString>>(
+         project.path
         ,is_move
         ,selectedFilesRadio->isChecked()
         ,destFolderLineEdit->text()
-        ,treeNoneRadio->isChecked()?CopyMoveData::TreeType::None:(this->treePreserveRadio->isChecked()?CopyMoveData::TreeType::Preserve:CopyMoveData::TreeType::Tag)
+        ,treeNoneRadio->isChecked()?eptg::CopyMoveData<QString>::TreeType::None:(this->treePreserveRadio->isChecked()?eptg::CopyMoveData<QString>::TreeType::Preserve:eptg::CopyMoveData<QString>::TreeType::Tag)
         ,overwriteRadio->isChecked()
         ,treeTagEdit->text()
         );
@@ -72,7 +74,8 @@ void MyWizardCopyMove::make_preview()
     if ( !preview || *preview != *new_preview)
     {
         preview.swap(new_preview);
-        preview->process(keys(project.files.collection)
+        preview->process(project
+                        ,keys(project.files.collection)
                         ,names_from_list_selection(main_window->Getui()->fillList->selectionModel()->selectedIndexes())
                         );
     }
@@ -102,11 +105,11 @@ void MyWizardCopyMove::on_CopyMoveWizard_currentIdChanged(int page_id)
                                );
         whereToLabel->setText(preview->dest);
 
-        if (preview->tree_type == CopyMoveData::TreeType::None)
+        if (preview->tree_type == eptg::CopyMoveData<QString>::TreeType::None)
             treeStructureLabel->setText("None (flat)");
-        else if (preview->tree_type == CopyMoveData::TreeType::Preserve)
+        else if (preview->tree_type == eptg::CopyMoveData<QString>::TreeType::Preserve)
             treeStructureLabel->setText("Preserve");
-        else if (preview->tree_type == CopyMoveData::TreeType::Tag)
+        else if (preview->tree_type == eptg::CopyMoveData<QString>::TreeType::Tag)
             treeStructureLabel->setText("Follow tag '" + preview->tag + "'");
 
         dupnamesLabel->setText(QString::number(preview->name_collision_count) + (preview->overwrite ? " to overwrite" : " to rename"));
@@ -148,70 +151,9 @@ void MyWizardCopyMove::on_CopyMoveWizard_finished(int result)
 
     make_preview();
 
-    auto dest_project = eptg::load(preview->dest);
-    std::set<QString> tags_used;
+    std::unique_ptr<eptg::Project<QString>> dest_project = project.execute(*preview);
 
-    bool is_internal = path::is_sub(project.path, preview->dest);
-
-    for (const auto & filenames_tuple : preview->files)
-    {
-        QString new_rel_path = std::get<0>(filenames_tuple);
-        QString old_rel_path = std::get<1>(filenames_tuple);
-
-        QFileInfo dest_info(path::append(preview->dest, new_rel_path));
-        QDir dest_dir(dest_info.path());
-
-        if ( ! dest_dir.exists())
-            if ( ! dest_dir.mkpath(dest_dir.path()))
-            {
-                // TODO: report error
-                continue;
-            }
-
-        // actual files
-        QFile::copy(path::append(project.path , old_rel_path)
-                   ,path::append(preview->dest, new_rel_path)
-                   );
-        if (preview->is_move)
-            QFile(path::append(project.path, old_rel_path)).remove();
-
-        // files in Project
-        eptg::File<QString> & new_file = dest_project->files.insert(new_rel_path, eptg::File<QString>{});
-        const eptg::File<QString> * old_file = project.files.find(old_rel_path);
-
-        // tags in Project
-        for (const QString & tag : old_file->inherited_tags)
-        {
-            new_file.insert_tag(tag);
-            if ( ! is_internal)
-                tags_used.insert(tag);
-        }
-
-        if (is_move)
-            project.files.erase(old_rel_path);
-    }
-
-    // tag inheritance
-    std::set<QString> tags_used_done;
-    while( ! tags_used.empty())
-    {
-        const QString & tag = *tags_used.begin();
-        const eptg::Tag<QString> * tag_in_old_project =      project. tags.find(tag);
-              eptg::Tag<QString> & tag_in_new_project = dest_project->tags.insert(tag, eptg::Tag<QString>{});
-
-        if (tag_in_old_project)
-            for (const QString & inherited_tag : tag_in_old_project->inherited_tags)
-            {
-                tag_in_new_project.insert_tag(inherited_tag);
-                if (tags_used_done.find(inherited_tag) == tags_used_done.end())
-                    tags_used.insert(inherited_tag);
-            }
-
-        tags_used_done.insert(tag);
-        tags_used.erase(tag);
-    }
-
-    if (is_internal)
+    if (path::is_sub(project.path, preview->dest)) // internal copy or move
         project.absorb(*dest_project);
     else
         eptg::save(dest_project);

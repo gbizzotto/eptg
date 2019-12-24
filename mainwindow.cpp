@@ -168,8 +168,30 @@ void MainWindow::on_menuOpenFolder_triggered()
 void MainWindow::open(const QString & pathName)
 {
     project = eptg::load(pathName);
+    eptg::sweep(*project);
 
     adjust_ui_for_project();
+}
+
+void MainWindow::add_open_recent(const QString & pathName)
+{
+    // set recent menu
+    if (ui->menuOpenRecent->actions().size() == 0)
+        ui->menuOpenRecent->addAction(pathName);
+    else
+    {
+        // remove duplicates
+        for(int i = ui->menuOpenRecent->actions().size() - 1 ; i >= 0 ; i--)
+            if (pathName == ui->menuOpenRecent->actions()[i]->text())
+                ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[i]);
+        // insert
+        QAction * qaction = new QAction(pathName);
+        qaction->setData(pathName);
+        ui->menuOpenRecent->insertAction(ui->menuOpenRecent->actions()[0], qaction);
+        // remove excess recents
+        while (ui->menuOpenRecent->actions().size() > MAX_RECENT)
+            ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[MAX_RECENT]);
+    }
 
     // save recent
     QSettings settings("ttt", "eptg");
@@ -184,7 +206,7 @@ void MainWindow::open(const QString & pathName)
 
 void MainWindow::adjust_ui_for_project()
 {
-    const QString pathName = project->path;
+    this->add_open_recent(project->path);
 
     ui->fillList->clear();
     for (const auto & p : project->files.collection)
@@ -206,27 +228,9 @@ void MainWindow::adjust_ui_for_project()
     ui->fillPreview->setPixmap(QPixmap());
     if (ui->fillList->count() > 0)
         ui->fillList->setCurrentRow(0);
-    this->setWindowTitle("eptgQt - " + pathName);
+    this->setWindowTitle("eptgQt - " + project->path);
 
     ui->tagsEdit->setFocus();
-
-    // set recent menu
-    if (ui->menuOpenRecent->actions().size() == 0)
-        ui->menuOpenRecent->addAction(pathName);
-    else
-    {
-        // remove duplicates
-        for(int i = ui->menuOpenRecent->actions().size() - 1 ; i >= 0 ; i--)
-            if (pathName == ui->menuOpenRecent->actions()[i]->text())
-                ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[i]);
-        // insert
-        QAction * qaction = new QAction(pathName);
-        qaction->setData(pathName);
-        ui->menuOpenRecent->insertAction(ui->menuOpenRecent->actions()[0], qaction);
-        // remove excess recents
-        while (ui->menuOpenRecent->actions().size() > MAX_RECENT)
-            ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[MAX_RECENT]);
-    }
 
     // known tags for autocompletion
     known_tags.clear();
@@ -256,10 +260,6 @@ void MainWindow::adjust_ui_for_project()
     if (ui->tabWidget->currentIndex() == 1)
         refresh_tag_list();
     ui->tagList->sortItems(1, Qt::SortOrder::DescendingOrder);
-
-
-
-
 }
 
 void MainWindow::refresh_tag_list()
@@ -289,72 +289,32 @@ void MainWindow::refresh_tag_list()
     ui->tagList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 }
 
-template<typename T>
-std::set<T> Added(const std::set<T> & before, const std::set<T> & after)
-{
-    std::set<T> result;
-    for (const T & t : after)
-        if (before.find(t) == before.end())
-            result.insert(t);
-    return result;
-}
-
 void MainWindow::save_current_file_tags()
 {
     if ( ! project)
         return;
 
-    auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
-    if (selected_items.size() == 0)
-        return;
+    auto selected_taggables_names = names_from_list_selection(ui->fillList->selectionModel()->selectedIndexes());
+    auto typed_tags = unique_tokens(ui->tagsEdit->text());
 
-    std::set<QString> selected_names = names_from_list_selection(selected_items);
-    std::set<QString> common_tags = project->get_common_tags(project->files.get_all_by_name(selected_names));
-
-    std::set<QString> typed_tags;
-    for (const QString & tag : ui->tagsEdit->text().split(' '))
-    {
-        if (tag.size() == 0)
-            continue;
-        typed_tags.insert(tag);
-    }
-    std::set<QString> added_tags   = Added(common_tags, typed_tags);
-    std::set<QString> removed_tags = Added(typed_tags, common_tags);
-
-    if (added_tags.size() == 0 && removed_tags.size() == 0)
-        return;
-
-    for (int i=0 ; i<selected_items.size() ; i++)
-    {
-        int idx = selected_items[i].row();
-        auto rel_path = ui->fillList->item(idx)->data(Qt::DisplayRole).toString();
-        if (removed_tags.size() > 0)
+    project->set_common_tags<false>(selected_taggables_names, typed_tags,
+        [this](const QString & tag, int increment)
         {
-            eptg::File<QString> * f = project->files.find(rel_path);
-            if (f != nullptr)
-                for (const QString & t : removed_tags)
-                {
-                    f->erase_tag(t);
-                    // update known_tags
-                    auto it = known_tags.find(t);
-                    if (it != known_tags.end())
-                        it->second--;
-                }
-        }
-        if (added_tags.size() > 0)
-        {
-            eptg::File<QString> & f = project->files.insert(rel_path, eptg::File<QString>());
-            for (const QString & t : added_tags)
+            if (increment > 0)
             {
-                f.insert_tag(t);
-                // update known_tags
-                auto it = known_tags.lower_bound(t);
-                if (it == known_tags.end() || it->first != t)
-                    it = known_tags.insert({t, 0}).first;
-                it->second++;
+                auto it = known_tags.lower_bound(tag);
+                if (it != known_tags.end() && it->first == tag)
+                    it->second += increment;
+                else
+                    it = known_tags.insert({tag, increment}).first;
             }
-        }
-    }
+            else if (increment < 0)
+            {
+                auto it = known_tags.find(tag);
+                if (it != known_tags.end())
+                    it->second += increment;
+            }
+        });
 
     eptg::save(project);
 }
@@ -411,64 +371,41 @@ void MainWindow::save_current_tag_tags()
     if ( ! project)
         return;
 
-    auto selected_items = ui->tagList->selectedItems();
-    if (selected_items.size() == 0)
-        return;
+    auto selected_taggables_names = names_from_list_selection(ui->tagList->selectedItems());
+    auto typed_tags = unique_tokens(ui->editTagTags->text());
 
-    std::set<QString> selected_names = names_from_list_selection(selected_items);
-    std::set<QString> common_tags = project->get_common_tags(project->tags.get_all_by_name(selected_names));
-
-    std::set<QString> typed_tags;
-    for (const QString & tag : ui->editTagTags->text().split(' '))
-        if (tag.size() > 0)
-            typed_tags.insert(tag);
-    std::set<QString> added_tags   = Added(common_tags, typed_tags);
-    std::set<QString> removed_tags = Added(typed_tags, common_tags);
-
-    if (added_tags.size() == 0 && removed_tags.size() == 0)
-        return;
-
-    for (const QString & selected_tag_name : selected_names)
-    {
-        if (removed_tags.size() > 0)
+    project->set_common_tags<true>(selected_taggables_names, typed_tags,
+        [this](const QString & tag, int increment)
         {
-            eptg::Tag<QString> * t = project->tags.find(selected_tag_name);
-            if (t != nullptr)
-                for (const QString & st : removed_tags)
-                    t->erase_tag(st);
-        }
-        if (added_tags.size() > 0)
-        {
-            eptg::Tag<QString> & t = project->tags.insert(selected_tag_name, eptg::Tag<QString>());
-            for (const QString & st : added_tags)
+            if (increment > 0)
             {
-                // let's check that the tag added does not already inherit (is tagged with) the selected tag
-                // if so, it would create circular inheritance, which does not make sense
-                // e.g.: if TZM is a ACTIVISM. Can't make ACTIVISM a TZM.
-                eptg::Tag<QString> * candidate = project->tags.find(st);
-                if (candidate != nullptr && candidate == project->tags.find(selected_tag_name))
-                    ui->statusbar->showMessage("Can't self-tag.", 10000);
-                else if (candidate != nullptr && project->inherits(*candidate, {selected_tag_name}))
-                {
-                    QString msg;
-                    msg << "Can't add tag '" << st << "' to tag " << selected_tag_name << "' because '" << selected_tag_name
-                        << "' or one of its parent tags has already been tagged '" << st << "'.";
-                    ui->statusbar->showMessage(msg, 10000);
-                }
+                auto it = known_tags.lower_bound(tag);
+                if (it != known_tags.end() && it->first == tag)
+                    it->second += increment;
                 else
-                {
-                    t.insert_tag(st);
-                    // update known_tags
-                    auto it = known_tags.lower_bound(st);
-                    if (it == known_tags.end() || it->first != st)
-                        it = known_tags.insert({st, 0}).first;
-                }
+                    it = known_tags.insert({tag, increment}).first;
             }
-        }
-    }
+            else if (increment < 0)
+            {
+                auto it = known_tags.find(tag);
+                if (it != known_tags.end())
+                    it->second += increment;
+            }
+        },
+        [this](const QString & selected_tag_name, const QString & st)
+        {
+            if (selected_tag_name == st)
+                ui->statusbar->showMessage("Can't self-tag.", 10000);
+            else
+            {
+                QString msg;
+                msg << "Can't add tag '" << st << "' to tag " << selected_tag_name << "' because '" << selected_tag_name
+                    << "' or one of its parent tags has already been tagged '" << st << "'.";
+                ui->statusbar->showMessage(msg, 10000);
+            }
+        });
 
     refresh_tag_list();
-
     eptg::save(project);
 }
 void MainWindow::on_editTagTags_returnPressed()
@@ -517,7 +454,7 @@ void MainWindow::on_tagList_itemSelectionChanged()
     ui->tagTreePreview->setText(hierarchy.join("<br/>↑<br/>"));
 
     // set tag line into edit
-    std::set<const eptg::taggable<QString>*> selected_tags = project->tags.get_all_by_name(selected_names);
+    std::set<eptg::taggable<QString>*> selected_tags = project->tags.get_all_by_name(selected_names);
     QStringList common_tags = qstring_list_from_std_container(project->get_common_tags(selected_tags));
     ui->editTagTags->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->editTagTags->setFocus();
@@ -594,7 +531,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
         ui->fillPreview->setPixmap(QPixmap());
 
     // set tag line into edit
-    std::set<const eptg::taggable<QString>*> selected_files = project->files.get_all_by_name(selected_names);
+    std::set<eptg::taggable<QString>*> selected_files = project->files.get_all_by_name(selected_names);
     QStringList common_tags = qstring_list_from_std_container(project->get_common_tags(selected_files));
     ui->tagsEdit->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->tagsEdit->setFocus();
@@ -739,7 +676,7 @@ void MainWindow::on_menuCopyFiles_triggered()
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, false));
     copy_move_wizard->exec();
     if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
-        ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
+        this->add_open_recent(copy_move_wizard->preview->dest);
     else
         adjust_ui_for_project();
 }
@@ -749,7 +686,7 @@ void MainWindow::on_menuMoveFiles_triggered()
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, true));
     copy_move_wizard->exec();
     if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
-        ui->menuOpenRecent->addAction(copy_move_wizard->preview->dest)->setData(copy_move_wizard->preview->dest);
+        this->add_open_recent(copy_move_wizard->preview->dest);
 
     adjust_ui_for_project();
 }

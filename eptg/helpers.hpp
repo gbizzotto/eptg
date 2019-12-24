@@ -7,25 +7,11 @@
 #include <functional>
 #include <type_traits>
 
-#if __has_include(<filesystem>)
-#   include <filesystem>
-#   define has_stdfs 1
-    namespace stdfs = std::filesystem;
-#elif __has_include(<experimental/filesystem>)
-#   include <experimental/filesystem>
-#   define has_stdfs 1
-    namespace stdfs = std::experimental::filesystem;
-#else
-#   define has_stdfs 0
-#   include <QStringList>
-#   include <QDir>
-#   include <QDirIterator>
-#endif
-
 #include <QImage>
 #include <QTableWidgetItem>
 
 #include "eptg/path.hpp"
+#include "eptg/fs.hpp"
 
 template<class Container, class T>
 auto find_impl(Container& c, const T& value, int) -> decltype(c.find(value)){
@@ -52,6 +38,16 @@ bool in(const C & container, const typename C::key_type & v)
 }
 
 bool in(const char * values, const char v);
+
+template<typename T>
+std::set<T> added(const std::set<T> & before, const std::set<T> & after)
+{
+    std::set<T> result;
+    for (const T & t : after)
+        if (before.find(t) == before.end())
+            result.insert(t);
+    return result;
+}
 
 int get_column(const QTableWidgetItem *item);
 int get_column(const QModelIndex      &item);
@@ -187,6 +183,8 @@ std::vector<    QString> split(const     QString & s, const char * separators = 
 std::string to_lower(const std::string & str);
     QString to_lower(const     QString & str);
 
+std::set<QString> unique_tokens(const QString & str);
+
 template<typename STR>
 STR str_to(const QString & str)
 {
@@ -210,8 +208,8 @@ std::set<STR> sweep(const STR & full_path, const std::set<STR> & extensions)
     std::set<STR> result;
 
 #if has_stdfs
-    for(const auto & p: stdfs::recursive_directory_iterator(str_to<std::string>(full_path)))
-        if (stdfs::is_regular_file(p))
+    for(const auto & p: eptg::fs::recursive_directory_iterator(str_to<std::string>(full_path)))
+        if (eptg::fs::is_regular_file(p))
             if (in(extensions, to_lower(str_to<STR>(substring(p.path().extension(), 1)))))
                 result.insert(str_to<STR>(path::relative(full_path, str_to<STR>(p.path()))));
 #else
@@ -227,7 +225,92 @@ std::set<STR> sweep(const STR & full_path, const std::set<STR> & extensions)
     return result;
 }
 
+template<typename STR, typename C>
+std::vector<std::vector<STR>> get_similar(const STR & base_path, const C & rel_paths, int allowed_difference, std::function<bool(size_t,size_t)> progress_callback)
+{
+    std::vector<std::vector<STR>> result;
 
+    size_t count = 0;
+    std::vector<std::tuple<STR, QImage, double, bool>> thumbs;
+
+    // read all images, resize, calculate avg luminosity
+    for (const STR & rel_path : keys(rel_paths))
+    {
+        STR full_path = path::append(base_path, rel_path);
+        QImage thumb = QImage(str_to<QString>(full_path)).scaled(8, 8);
+        double grad = 0;
+        for (int y=0 ; y<8 ; y++)
+            for (int x=0 ; x<8 ; x++)
+            {
+                QRgb rgb = thumb.pixel(x, y);
+                grad += qRed  (rgb);
+                grad += qGreen(rgb);
+                grad += qBlue (rgb);
+            }
+        grad /= 3*8*8;
+        thumbs.emplace_back(rel_path, std::move(thumb), grad, false);
+
+        count++;
+        if ( ! progress_callback(count, rel_paths.size()))
+            return result;
+    }
+
+    // sort by
+    std::sort(thumbs.begin(), thumbs.end(),
+        [](const typename decltype(thumbs)::value_type & left, const typename decltype(thumbs)::value_type & right)
+            {
+                return std::get<2>(left) < std::get<2>(right);
+            }
+        );
+
+    for (auto it=thumbs.begin(),end=thumbs.end() ; it!=end ; ++it)
+    {
+        if (std::get<3>(*it)) // already in a set
+            continue;
+        bool found_similar = false;
+        auto grad = std::get<2>(*it);
+        auto rel_path = std::get<0>(*it);
+        for (auto it2=std::make_reverse_iterator(it),end2=thumbs.rend() ; it2!=end2 ; it2++)
+        {
+            if (std::get<3>(*it2)) // already in a set
+                continue;
+            if (std::get<2>(*it2) < grad-3)
+                break;
+            if (images_close(std::get<1>(*it), std::get<1>(*it2), allowed_difference))
+            {
+                if ( ! found_similar)
+                {
+                    result.push_back({});
+                    result.back().push_back(rel_path);
+                    found_similar = true;
+                    std::get<3>(*it) = true;
+                }
+                std::get<3>(*it2) = true;
+                result.back().push_back(std::get<0>(*it2));
+            }
+        }
+        for (auto it2=std::next(it),end2=thumbs.end() ; it2!=end2 ; it2++)
+        {
+            if (std::get<3>(*it2)) // already in a set
+                continue;
+            if (std::get<2>(*it2) > grad+3)
+                break;
+            if (images_close(std::get<1>(*it), std::get<1>(*it2), allowed_difference))
+            {
+                if ( ! found_similar)
+                {
+                    result.push_back({});
+                    result.back().push_back(rel_path);
+                    found_similar = true;
+                    std::get<3>(*it) = true;
+                }
+                std::get<3>(*it2) = true;
+                result.back().push_back(std::get<0>(*it2));
+            }
+        }
+    }
+    return result;
+}
 
 
 #endif // HELPERS_HPP

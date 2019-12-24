@@ -23,12 +23,12 @@ public:
     ~MainWindow();
     void show_similar_groups(const std::vector<std::vector<QString>> & groups);
     inline const Ui::MainWindow* Getui() const { return ui; }
+    void save_current_file_tags();
+    void open(const QString & pathName);
+    void add_open_recent(const QString & pathName);
 protected:
     void showEvent(QShowEvent *ev);
-private:
-    void open(const QString & pathName);
 private slots:
-    void save_current_file_tags();
     void save_current_tag_tags();
     void refresh_tag_list();
     bool open_containing_folder(const QStringList & paths) const;
