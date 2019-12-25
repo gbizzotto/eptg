@@ -22,7 +22,9 @@ SOURCES += \
     MyWidgetTable.cpp \
     MyWizardCopyMove.cpp \
     eptg/helpers.cpp \
+    eptg/in.cpp \
     eptg/path.cpp \
+    eptg/string.cpp \
     main.cpp \
     mainwindow.cpp
 
@@ -36,10 +38,12 @@ HEADERS += \
     eptg/copy_move_data.hpp \
     eptg/fs.hpp \
     eptg/helpers.hpp \
+    eptg/in.hpp \
     eptg/json.hpp \
     eptg/path.hpp \
     eptg/project.hpp \
     eptg/search.hpp \
+    eptg/string.hpp \
     mainwindow.h \
 
 FORMS += \

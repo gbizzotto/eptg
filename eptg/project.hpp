@@ -343,17 +343,20 @@ struct Project
             STR new_rel_path = std::get<0>(filenames_tuple);
             STR old_rel_path = std::get<1>(filenames_tuple);
 
-            eptg::fs::create_directories(path::append(str_to<std::string>(copy_move_data.dest), eptg::fs::path(str_to<std::string>(new_rel_path)).parent_path()));
+            eptg::fs::create_directories(path::append(eptg::str::to<std::string>(copy_move_data.dest), eptg::fs::path(eptg::str::to<std::string>(new_rel_path)).parent_path()));
 
-            if ( ! eptg::fs::exists(str_to<std::string>(path::append(path , old_rel_path))))
+            if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path , old_rel_path))))
                 continue;
 
             // actual files
-            eptg::fs::copy(str_to<std::string>(path::append(path , old_rel_path))
-                          ,str_to<std::string>(path::append(copy_move_data.dest, new_rel_path))
-                          );
             if (copy_move_data.is_move)
-                eptg::fs::remove(str_to<std::string>(path::append(path, old_rel_path)));
+                eptg::fs::rename(eptg::str::to<std::string>(path::append(path , old_rel_path))
+                                ,eptg::str::to<std::string>(path::append(copy_move_data.dest, new_rel_path))
+                                );
+            else
+                eptg::fs::copy(eptg::str::to<std::string>(path::append(path , old_rel_path))
+                              ,eptg::str::to<std::string>(path::append(copy_move_data.dest, new_rel_path))
+                              );
 
             // files in Project
             eptg::File<STR> & new_file = dest_project->files.insert(new_rel_path, eptg::File<STR>{});
@@ -398,9 +401,9 @@ template<typename STR>
 void sweep(Project<STR> & project)
 {
     // sweep directory
-    if ( ! eptg::fs::exists(str_to<std::string>(project.path)))
+    if ( ! eptg::fs::exists(eptg::str::to<std::string>(project.path)))
         return;
-    for (const STR & str : sweep(project.path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif"}))
+    for (const STR & str : path::sweep(project.path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif"}))
         project.files.insert(str, File<STR>());
 }
 
@@ -409,11 +412,11 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
 {
     std::unique_ptr<Project<STR>> project = std::make_unique<Project<STR>>(full_path);
 
-    if ( ! eptg::fs::exists(str_to<std::string>(path::append(full_path, PROJECT_FILE_NAME))))
+    if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME))))
         return project;
     std::string json_string;
     {
-        std::ifstream in(str_to<std::string>(path::append(full_path, PROJECT_FILE_NAME)));
+        std::ifstream in(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME)));
         std::stringstream buffer;
         buffer << in.rdbuf();
         json_string = buffer.str();
@@ -427,7 +430,7 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
         return project;
     for(const auto & [rel_path,file_var] : std::get<eptg::json::dict<STR>>(dict["files"]))
     {
-        if ( ! eptg::fs::exists(str_to<std::string>(path::append(project->path, rel_path)))) // prune deleted files
+        if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(project->path, rel_path)))) // prune deleted files
             continue;
         if ( ! std::holds_alternative<json::dict<STR>>(file_var))
             continue;
@@ -501,8 +504,8 @@ void save(const std::unique_ptr<Project<STR>> & project)
     document["files"] = files;
     document["tags" ] = tags ;
 
-    std::string json_str = str_to<std::string>(eptg::json::to_str(document, 0));
-    std::ofstream out(str_to<std::string>(path::append(project->path, PROJECT_FILE_NAME)));
+    std::string json_str = eptg::str::to<std::string>(eptg::json::to_str(document, 0));
+    std::ofstream out(eptg::str::to<std::string>(path::append(project->path, PROJECT_FILE_NAME)));
     out.write(json_str.c_str(), json_str.size());
     out.flush();
     out.close();

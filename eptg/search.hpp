@@ -25,10 +25,10 @@ struct SearchNode
     SearchNode(const STR str)
     {
         std::vector<std::variant<STR,SearchNode>> vars;
-        for (STR & token : split(str, "()!", " \t"))
+        for (STR & token : eptg::str::split(str, "()!", " \t"))
         {
-            STR lowercase_token = to_lower(token);
-            if (in(std::vector<STR>{"and", "or", "not"}, lowercase_token))
+            STR lowercase_token = eptg::str::to_lower(token);
+            if (eptg::in(std::vector<STR>{"and", "or", "not"}, lowercase_token))
                 vars.emplace_back(std::move(lowercase_token));
             else
                 vars.emplace_back(std::move(token));
@@ -85,7 +85,7 @@ struct SearchNode
                 no_not_tokens.push_back(SearchNode(SearchNode::Type::NOT, {*it2}));
             }
             else if (token[0] == '!')
-                no_not_tokens.push_back(SearchNode(SearchNode::Type::NOT, {substring(token, 1)}));
+                no_not_tokens.push_back(SearchNode(SearchNode::Type::NOT, {eptg::str::substring(token, 1)}));
             else
                 no_not_tokens.push_back(*it);
         }

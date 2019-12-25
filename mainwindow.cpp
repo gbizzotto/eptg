@@ -1,13 +1,7 @@
 #include <thread>
 #include <atomic>
 #include <cmath>
-#include "eptg/constants.hpp"
-#include "eptg/helpers.hpp"
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include "MyDialogFindSimilar.h"
-#include "MyDialogProcess.h"
-#include "MyWizardCopyMove.h"
+
 #include <QFileDialog>
 #include <QKeyEvent>
 #include <QSettings>
@@ -22,7 +16,18 @@
 #include <QRgb>
 #include <QThread>
 #include <QTimer>
+#include <QStringList>
 
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+#include "MyDialogFindSimilar.h"
+#include "MyDialogProcess.h"
+#include "MyWizardCopyMove.h"
+
+#include "eptg/constants.hpp"
+#include "eptg/helpers.hpp"
+#include "eptg/path.hpp"
+#include "eptg/string.hpp"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -48,7 +53,15 @@ MainWindow::MainWindow(QWidget *parent)
     {
         settings.setArrayIndex(i);
         QString path = settings.value("recent").toString();
-        ui->menuOpenRecent->addAction(path)->setData(path);
+        bool has_same = false;
+        for(int i = ui->menuOpenRecent->actions().size() - 1 ; i >= 0 ; i--)
+            if (path::are_same(path, ui->menuOpenRecent->actions()[i]->text()))
+            {
+                has_same = true;
+                break;
+            }
+        if ( ! has_same)
+            ui->menuOpenRecent->addAction(path)->setData(path);
     }
     settings.endArray();
 
@@ -200,7 +213,7 @@ void MainWindow::add_open_recent(const QString & pathName)
     {
         // remove duplicates
         for(int i = ui->menuOpenRecent->actions().size() - 1 ; i >= 0 ; i--)
-            if (pathName == ui->menuOpenRecent->actions()[i]->text())
+            if (path::are_same(pathName, ui->menuOpenRecent->actions()[i]->text()))
                 ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[i]);
         // insert
         QAction * qaction = new QAction(pathName);
@@ -313,7 +326,7 @@ void MainWindow::save_current_file_tags()
         return;
 
     auto selected_taggables_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
-    auto typed_tags = unique_tokens(ui->tagsEdit->text());
+    auto typed_tags = eptg::str::unique_tokens(ui->tagsEdit->text());
 
     project->set_common_tags<false>(selected_taggables_names, typed_tags,
         [this](const QString & tag, int increment)
@@ -388,7 +401,7 @@ void MainWindow::save_current_tag_tags()
         return;
 
     auto selected_taggables_names = names_from_list(ui->tagList->selectedItems());
-    auto typed_tags = unique_tokens(ui->editTagTags->text());
+    auto typed_tags = eptg::str::unique_tokens(ui->editTagTags->text());
 
     project->set_common_tags<true>(selected_taggables_names, typed_tags,
         [this](const QString & tag, int increment)
@@ -456,21 +469,21 @@ void MainWindow::on_tagList_itemSelectionChanged()
         ; tags.size() > 0
         ; tags = project->get_common_tags(project->tags.get_all_by_name(tags)) )
     {
-        hierarchy.insert(0, qstring_list_from_std_container(tags).join(", "));
+        hierarchy.insert(0, accumulate(tags, QStringList()).join(", "));
     }
-    hierarchy += QString("<b>").append(qstring_list_from_std_container(selected_names).join(", ")).append("</b>");
+    hierarchy += QString("<b>").append(accumulate(selected_names, QStringList()).join(", ")).append("</b>");
     for ( std::set<QString> tags = project->get_descendent_tags(selected_names)
         ; tags.size() > 0
         ; tags = project->get_descendent_tags(tags) )
     {
-        hierarchy += qstring_list_from_std_container(tags).join(", ");
+        hierarchy += accumulate(tags, QStringList()).join(", ");
     }
 
     ui->tagTreePreview->setText(hierarchy.join("<br/>↑<br/>"));
 
     // set tag line into edit
     std::set<eptg::taggable<QString>*> selected_tags = project->tags.get_all_by_name(selected_names);
-    QStringList common_tags = qstring_list_from_std_container(project->get_common_tags(selected_tags));
+    QStringList common_tags = accumulate(project->get_common_tags(selected_tags), QStringList());
     ui->editTagTags->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->editTagTags->setFocus();
 }
@@ -547,7 +560,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
 
     // set tag line into edit
     std::set<eptg::taggable<QString>*> selected_files = project->files.get_all_by_name(selected_names);
-    QStringList common_tags = qstring_list_from_std_container(project->get_common_tags(selected_files));
+    QStringList common_tags = accumulate(project->get_common_tags(selected_files), QStringList());
     ui->tagsEdit->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->tagsEdit->setFocus();
 }

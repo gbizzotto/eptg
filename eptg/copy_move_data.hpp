@@ -4,6 +4,7 @@
 #include "eptg/path.hpp"
 #include "eptg/fs.hpp"
 #include "eptg/helpers.hpp"
+#include "eptg/string.hpp"
 
 namespace eptg {
 
@@ -119,18 +120,18 @@ struct CopyMoveData
 
     inline STR adjust_for_duplicity(const STR & rel_path)
     {
-        if ( ! eptg::fs::exists(str_to<std::string>(path::append(dest, rel_path)))
+        if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(dest, rel_path)))
           && ! in(files, rel_path))
             return rel_path;
-        STR path      = str_to<STR>(eptg::fs::path(str_to<std::string>(rel_path)).parent_path());
-        STR filename  = str_to<STR>(eptg::fs::path(str_to<std::string>(rel_path)).stem       ());
-        STR extension = str_to<STR>(eptg::fs::path(str_to<std::string>(rel_path)).extension  ());
+        STR path      = eptg::str::to<STR>(eptg::fs::path(eptg::str::to<std::string>(rel_path)).parent_path());
+        STR filename  = eptg::str::to<STR>(eptg::fs::path(eptg::str::to<std::string>(rel_path)).stem       ());
+        STR extension = eptg::str::to<STR>(eptg::fs::path(eptg::str::to<std::string>(rel_path)).extension  ());
 
         int i = 2;
         for (;;)
         {
-            STR new_rel_path = path::append(path,filename).append(" (").append(str_to<STR>(std::to_string(i))).append(")").append(extension);
-            if ( !  eptg::fs::exists(str_to<std::string>(path::append(dest, new_rel_path)))
+            STR new_rel_path = path::append(path,filename).append(" (").append(eptg::str::to<STR>(std::to_string(i))).append(")").append(extension);
+            if ( !  eptg::fs::exists(eptg::str::to<std::string>(path::append(dest, new_rel_path)))
               && ! in(files, new_rel_path))
             {
                 return new_rel_path;

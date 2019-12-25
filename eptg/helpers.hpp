@@ -11,45 +11,13 @@
 #include <QImage>
 #include <QTableWidgetItem>
 #include <QListWidget>
+#include <QString>
 
 #include "eptg/path.hpp"
-#include "eptg/fs.hpp"
+#include "eptg/string.hpp"
+#include "eptg/in.hpp"
+#include "eptg/string.hpp"
 
-template<class Container, class T>
-auto find_impl(Container& c, const T& value, int) -> decltype(c.find(value)){
-    return c.find(value);
-}
-template<class Container, class T>
-auto find_impl(Container& c, const T& value, long) -> decltype(std::begin(c)){
-    return std::find(std::begin(c), std::end(c), value);
-}
-template<class Container, class T>
-auto find(Container& c, const T& value) -> decltype(find_impl(c, value, 0)) {
-    return find_impl(c, value, 0);
-}
-template<typename C>
-bool in(const C & container, const typename C::value_type & v)
-{
-    return find(container, v) != container.end();
-}
-template<typename C,
-         typename std::enable_if< ! std::is_same<typename C::value_type,typename C::key_type>{},int>::type = 0>
-bool in(const C & container, const typename C::key_type & v)
-{
-    return find(container, v) != container.end();
-}
-
-bool in(const char * values, const char v);
-
-template<typename T>
-std::set<T> added(const std::set<T> & before, const std::set<T> & after)
-{
-    std::set<T> result;
-    for (const T & t : after)
-        if (before.find(t) == before.end())
-            result.insert(t);
-    return result;
-}
 
 int get_column(const QTableWidgetItem *item);
 int get_column(const QModelIndex      &item);
@@ -68,54 +36,29 @@ std::set<QString> names_from_list(const QList<ITEM_TYPE> & selected_items)
 std::set<QString> names_from_list(const QListWidget * list);
 
 
-template<typename C,
-         typename std::enable_if<std::is_same<typename C::value_type,std::string>{},int>::type = 0>
-QStringList qstring_list_from_std_container(const C & container)
-{
-    QStringList result;
-    for (const std::string & s : container)
-        result.append(QString::fromStdString(s));
-    return result;
-}
-template<typename C,
-         typename std::enable_if<std::is_same<typename C::value_type,std::string>{},int>::type = 0>
-QStringList qstring_list_from_std_container(C && string_collection)
-{
-    QStringList result;
-    for (const std::string & str : string_collection)
-        result += QString::fromStdString(str);
-    return result;
-}
-
-template<typename C,
-         typename std::enable_if<std::is_same<typename C::value_type,QString>{},int>::type = 0>
-QStringList qstring_list_from_std_container(const C & string_collection)
-{
-    QStringList result;
-    for (const QString & str : string_collection)
-        result += str;
-    return result;
-}
-template<typename C,
-         typename std::enable_if<std::is_same<typename C::value_type,QString>{},int>::type = 0>
-QStringList qstring_list_from_std_container(C && string_collection)
-{
-    QStringList result;
-    for (const QString & str : string_collection)
-        result += str;
-    return result;
-}
-
-template<typename T>
-QString & operator<<(QString & out, const T & t)
-{
-    return out.append(t);
-}
-template<>
-QString & operator<<(QString & out, const std::string & t);
-
 bool images_close(const QImage & left, const QImage & right, int allowed_difference);
 
+
+template<typename T>
+std::set<T> added(const std::set<T> & before, const std::set<T> & after)
+{
+    std::set<T> result;
+    for (const T & t : after)
+        if (before.find(t) == before.end())
+            result.insert(t);
+    return result;
+}
+
+template<typename C, typename A>
+A accumulate(const C & iterable, A accumulator)
+{
+    return accumulate(std::begin(iterable), std::end(iterable), accumulator);
+}
+template<typename C, typename A, typename F>
+A accumulate(const C & iterable, A accumulator, const F & accumulate_functor)
+{
+    return accumulate(std::begin(iterable), std::end(iterable), accumulator, accumulate_functor);
+}
 
 // range-based for loop on KEYS
 template<typename C>
@@ -180,59 +123,6 @@ public:
 template<typename C>
 values_impl<C> values(const C & container) { return values_impl<C>(container); }
 
-std::string substring(const std::string & str, size_t idx);
-    QString substring(          QString   str,    int idx);
-std::vector<std::string> split(const std::string & s, const char * separators = " \t", const char * ignore = "");
-std::vector<    QString> split(const     QString & s, const char * separators = " \t", const char * ignore = "");
-std::string to_lower(const std::string & str);
-    QString to_lower(const     QString & str);
-
-std::set<QString> unique_tokens(const QString & str);
-
-template<typename STR>
-STR str_to(const QString & str)
-{
-    return str.toStdString().c_str();
-}
-template<typename STR>
-STR str_to(const std::string & str)
-{
-    return str.c_str();
-}
-
-template<>     QString str_to<    QString>(const std::string & str);
-template<>     QString str_to<    QString>(const     QString & str);
-template<> std::string str_to<std::string>(const std::string & str);
-template<> std::string str_to<std::string>(const     QString & str);
-
-template<typename STR>
-std::set<STR> sweep(const STR & full_path, const std::set<STR> & extensions)
-{
-    std::set<STR> result;
-
-#if has_stdfs
-    for (std::deque<eptg::fs::path> directories{{str_to<std::string>(full_path)}} ; ! directories.empty() ; directories.pop_front())
-        try {
-            for(eptg::fs::directory_iterator dit(directories.front()) ; dit != eptg::fs::directory_iterator() ; ++dit)
-                if(eptg::fs::is_directory(dit->path()))
-                    directories.push_back(dit->path());
-                else if (eptg::fs::is_regular_file(dit->path()))
-                    if (in(extensions, to_lower(str_to<STR>(dit->path().extension()))))
-                        result.insert(path::relative(full_path, str_to<STR>(dit->path().string())));
-        }
-        catch(...)
-        {}
-#else
-    decltype(extensions) extensions_for_qt;
-    std::transform(extensions.begin(), extensions.end(), std::inserter(extensions_for_qt), [](const STR & str){ return STR("*").append(str); });
-    QDir base_path(full_path);
-    QDirIterator it(full_path, extensions_for_qt, QDir::Files, QDirIterator::Subdirectories);
-    while (it.hasNext())
-        result.insert(str_to<STR>(it.next()));
-#endif
-
-    return result;
-}
 
 template<typename STR, typename C>
 std::vector<std::vector<STR>> get_similar(const STR & base_path, const C & rel_paths, int allowed_difference, std::function<bool(size_t,size_t)> progress_callback)
@@ -246,7 +136,7 @@ std::vector<std::vector<STR>> get_similar(const STR & base_path, const C & rel_p
     for (const STR & rel_path : keys(rel_paths))
     {
         STR full_path = path::append(base_path, rel_path);
-        QImage thumb = QImage(str_to<QString>(full_path)).scaled(8, 8);
+        QImage thumb = QImage(eptg::str::to<QString>(full_path)).scaled(8, 8);
         double grad = 0;
         for (int y=0 ; y<8 ; y++)
             for (int x=0 ; x<8 ; x++)
