@@ -378,6 +378,7 @@
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="menuSelect_all"/>
     <addaction name="menuOpenContainingFolder"/>
     <addaction name="actionGoto_first_untagged"/>
     <addaction name="separator"/>
@@ -441,6 +442,14 @@
   <action name="menuMoveFiles">
    <property name="text">
     <string>Move...</string>
+   </property>
+  </action>
+  <action name="menuSelect_all">
+   <property name="text">
+    <string>Select all</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+A</string>
    </property>
   </action>
  </widget>

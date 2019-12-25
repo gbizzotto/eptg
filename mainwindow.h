@@ -72,6 +72,8 @@ private slots:
 
     void on_menuMoveFiles_triggered();
 
+    void on_menuSelect_all_triggered();
+
 private:
     std::unique_ptr<eptg::Project<QString>> project;
     Ui::MainWindow *ui;

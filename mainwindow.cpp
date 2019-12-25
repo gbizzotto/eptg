@@ -693,3 +693,8 @@ void MainWindow::on_menuMoveFiles_triggered()
         adjust_ui_for_project();
     }
 }
+
+void MainWindow::on_menuSelect_all_triggered()
+{
+    ui->fillList->selectAll();
+}
