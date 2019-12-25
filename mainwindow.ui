@@ -360,6 +360,8 @@
     </widget>
     <addaction name="menuOpenFolder"/>
     <addaction name="menuOpenRecent"/>
+    <addaction name="separator"/>
+    <addaction name="menuSave"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -450,6 +452,14 @@
    </property>
    <property name="shortcut">
     <string>Alt+A</string>
+   </property>
+  </action>
+  <action name="menuSave">
+   <property name="text">
+    <string>Save</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
    </property>
   </action>
  </widget>

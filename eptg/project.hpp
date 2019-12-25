@@ -471,6 +471,8 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
 template<typename STR>
 void save(const std::unique_ptr<Project<STR>> & project)
 {
+    if ( ! project)
+        return;
     eptg::json::dict<STR> files;
     for (const auto & [id,file] : project->files.collection)
     {

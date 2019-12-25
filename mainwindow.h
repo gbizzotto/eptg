@@ -27,7 +27,8 @@ public:
     void open(const QString & pathName);
     void add_open_recent(const QString & pathName);
 protected:
-    void showEvent(QShowEvent *ev);
+    void showEvent(QShowEvent *ev) override;
+    void closeEvent(QCloseEvent *event) override;
 private slots:
     void save_current_tag_tags();
     void refresh_tag_list();
@@ -35,6 +36,7 @@ private slots:
     void go_to_first_untagged();
     void preview_pictures(const std::set<QString> & selected_items_text);
     void adjust_ui_for_project();
+    void save();
 
     void on_menuOpenRecent(QAction *action);
 
@@ -73,6 +75,8 @@ private slots:
     void on_menuMoveFiles_triggered();
 
     void on_menuSelect_all_triggered();
+
+    void on_menuSave_triggered();
 
 private:
     std::unique_ptr<eptg::Project<QString>> project;

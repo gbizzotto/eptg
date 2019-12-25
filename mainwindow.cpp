@@ -21,6 +21,7 @@
 #include <QProcess>
 #include <QRgb>
 #include <QThread>
+#include <QTimer>
 
 
 MainWindow::MainWindow(QWidget *parent)
@@ -51,6 +52,10 @@ MainWindow::MainWindow(QWidget *parent)
     }
     settings.endArray();
 
+    std::unique_ptr<QTimer> timer(new QTimer(this));
+    connect(timer.get(), SIGNAL(timeout()), this, SLOT(save()));
+    timer->start(10000); //time specified in ms
+
     connect(ui->menuOpenRecent, SIGNAL(triggered(QAction*)), this, SLOT(on_menuOpenRecent(QAction*)));
 }
 
@@ -62,6 +67,17 @@ void MainWindow::showEvent(QShowEvent *)
 {
     if (ui->menuOpenRecent->actions().size() > 0)
         this->open(ui->menuOpenRecent->actions()[0]->text());
+}
+void MainWindow::closeEvent(QCloseEvent *)
+{
+    save();
+}
+
+void MainWindow::save()
+{
+    save_current_file_tags();
+    save_current_tag_tags();
+    eptg::save(project);
 }
 
 void MainWindow::on_menuOpenRecent(QAction *action)
@@ -167,6 +183,8 @@ void MainWindow::on_menuOpenFolder_triggered()
 
 void MainWindow::open(const QString & pathName)
 {
+    save();
+
     project = eptg::load(pathName);
     eptg::sweep(*project);
 
@@ -315,8 +333,6 @@ void MainWindow::save_current_file_tags()
                     it->second += increment;
             }
         });
-
-    eptg::save(project);
 }
 
 void MainWindow::on_tagsEdit_returnPressed()
@@ -406,7 +422,6 @@ void MainWindow::save_current_tag_tags()
         });
 
     refresh_tag_list();
-    eptg::save(project);
 }
 void MainWindow::on_editTagTags_returnPressed()
 {
@@ -607,6 +622,7 @@ void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
 
 void MainWindow::on_menuQuit_triggered()
 {
+    close();
     QApplication::quit();
 }
 
@@ -697,4 +713,9 @@ void MainWindow::on_menuMoveFiles_triggered()
 void MainWindow::on_menuSelect_all_triggered()
 {
     ui->fillList->selectAll();
+}
+
+void MainWindow::on_menuSave_triggered()
+{
+    save();
 }
