@@ -78,6 +78,10 @@ private slots:
 
     void on_menuSave_triggered();
 
+    void on_menuRename_triggered();
+
+    void on_pathEdit_editingFinished();
+
 private:
     std::unique_ptr<eptg::Project<QString>> project;
     Ui::MainWindow *ui;

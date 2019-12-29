@@ -197,16 +197,18 @@ STR to_str(const array<STR> & dict, int indent=0)
 template<typename STR>
 STR to_str(const var<STR> & var, int indent=0)
 {
+    STR result;
     if (std::holds_alternative<int>(var))
-        return to_str<STR>(std::get<int>(var));
+        result = to_str<STR>(std::get<int>(var));
     else if (std::holds_alternative<STR>(var))
-        return to_str<STR>(std::get<STR>(var));
+        result = to_str<STR>(std::get<STR>(var));
     else if (std::holds_alternative<dict<STR>>(var))
-        return to_str(std::get<dict<STR>>(var), indent);
+        result = to_str(std::get<dict<STR>>(var), indent);
     else if (std::holds_alternative<array<STR>>(var))
-        return to_str(std::get<array<STR>>(var), indent);
+        result = to_str(std::get<array<STR>>(var), indent);
     else
-        return "";
+        result = "";
+    return result;
 }
 
 }} // namespace

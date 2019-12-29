@@ -134,21 +134,9 @@
              <enum>QLayout::SetMinimumSize</enum>
             </property>
             <item>
-             <widget class="QLabel" name="fullpathLabel">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="frameShape">
-               <enum>QFrame::StyledPanel</enum>
-              </property>
-              <property name="text">
-               <string/>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             <widget class="QLineEdit" name="pathEdit">
+              <property name="focusPolicy">
+               <enum>Qt::ClickFocus</enum>
               </property>
              </widget>
             </item>
@@ -384,6 +372,7 @@
     <addaction name="menuOpenContainingFolder"/>
     <addaction name="actionGoto_first_untagged"/>
     <addaction name="separator"/>
+    <addaction name="menuRename"/>
     <addaction name="menuCopyFiles"/>
     <addaction name="menuMoveFiles"/>
    </widget>
@@ -460,6 +449,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="menuRename">
+   <property name="text">
+    <string>Rename</string>
+   </property>
+   <property name="shortcut">
+    <string>F2</string>
    </property>
   </action>
  </widget>

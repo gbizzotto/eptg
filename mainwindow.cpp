@@ -43,9 +43,10 @@ MainWindow::MainWindow(QWidget *parent)
     statusSizeLabel = new QLabel(this);
     ui->statusbar->addWidget(statusSizeLabel);
 
-    ui->tagsEdit->installEventFilter(this);
+    ui->tagsEdit   ->installEventFilter(this);
     ui->editTagTags->installEventFilter(this);
-    ui->searchEdit->installEventFilter(this);
+    ui->searchEdit ->installEventFilter(this);
+    ui->pathEdit   ->installEventFilter(this);
 
     // load settings
     QSettings settings("ttt", "eptg");
@@ -112,7 +113,20 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
         }
     }
 
-    if (obj == ui->tagsEdit || obj == ui->editTagTags || obj == ui->searchEdit)
+    if (obj == ui->pathEdit)
+    {
+        if (event->type() == QEvent::KeyPress)
+        {
+            QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+            if (keyEvent->key() == Qt::Key_Escape)
+            {
+                ui->pathEdit->setSelection(0,0);
+                ui->tagsEdit->setFocus();
+                return true;
+            }
+        }
+    }
+    else if (obj == ui->tagsEdit || obj == ui->editTagTags || obj == ui->searchEdit)
     {
         QLineEdit *edit = static_cast<QLineEdit*>(obj);
         if (event->type() == QEvent::KeyPress)
@@ -537,20 +551,22 @@ void MainWindow::on_fillList_itemSelectionChanged()
 
     // display full path
     if (selected_names.size() == 0)
-        ui->fullpathLabel->setText("");
+        ui->pathEdit->setText("");
     else if (selected_names.size() == 1)
     {
-        ui->fullpathLabel->setText(path::append(project->path, *selected_names.begin()));
-        int w = ui->fullpathLabel->fontMetrics().width(ui->fullpathLabel->text());
-        if (w <= ui->fullpathLabel->width() - 8)
-            ui->fullpathLabel->setAlignment(Qt::AlignLeft);
+        ui->pathEdit->setEnabled(true);
+        ui->pathEdit->setText(*selected_names.begin());
+        int w = ui->pathEdit->fontMetrics().width(ui->pathEdit->text());
+        if (w <= ui->pathEdit->width() - 8)
+            ui->pathEdit->setAlignment(Qt::AlignLeft);
         else
-            ui->fullpathLabel->setAlignment(Qt::AlignRight);
+            ui->pathEdit->setAlignment(Qt::AlignRight);
     }
     else
     {
-        ui->fullpathLabel->setAlignment(Qt::AlignLeft);
-        ui->fullpathLabel->setText("Many...");
+        ui->pathEdit->setEnabled(false);
+        ui->pathEdit->setAlignment(Qt::AlignLeft);
+        ui->pathEdit->setText("Many...");
     }
 
     // prepare preview
@@ -732,4 +748,43 @@ void MainWindow::on_menuSelect_all_triggered()
 void MainWindow::on_menuSave_triggered()
 {
     save();
+}
+
+void MainWindow::on_menuRename_triggered()
+{
+    QString rel_name = ui->pathEdit->text();
+    eptg::fs::path p(eptg::str::to<std::string>(rel_name));
+    QString stem = eptg::str::to<QString>(p.stem());
+    int pos = rel_name.lastIndexOf(stem);
+    if (pos != -1)
+        ui->pathEdit->setSelection(pos, stem.size());
+
+    ui->pathEdit->setFocus();
+}
+
+void MainWindow::on_pathEdit_editingFinished()
+{
+    std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
+    if (selected_names.size() != 1)
+        return;
+
+    auto status = project->rename(*selected_names.begin(), ui->pathEdit->text());
+    if (status == decltype(status)::DifferentFolders)
+    {
+        QToolTip::showText(ui->pathEdit->mapToGlobal(QPoint(0, 0)), "To change the file's folder, use File>Move", nullptr, QRect(), 3000);
+        return;
+    }
+    else if (status == decltype(status)::DestinationExists)
+    {
+        QToolTip::showText(ui->pathEdit->mapToGlobal(QPoint(0, 0)), "File already exists.", nullptr, QRect(), 3000);
+        return;
+    }
+    else if (status != decltype(status)::Success)
+    {
+        QToolTip::showText(ui->pathEdit->mapToGlobal(QPoint(0, 0)), "Unknown error.", nullptr, QRect(), 3000);
+        return;
+    }
+
+    // restore selected item
+    ui->fillList->selectedItems().front()->setData(Qt::EditRole, ui->pathEdit->text());
 }

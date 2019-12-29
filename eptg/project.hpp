@@ -17,6 +17,7 @@
 #include "eptg/json.hpp"
 #include "eptg/copy_move_data.hpp"
 #include "eptg/fs.hpp"
+#include "eptg/string.hpp"
 
 namespace eptg {
 
@@ -395,6 +396,37 @@ struct Project
         }
         return dest_project;
     }
+
+    enum RenameStatus
+    {
+        Success = 0,
+        DifferentFolders,
+        OriginNotFound,
+        DestinationExists,
+    };
+
+    RenameStatus rename(const STR & old_rel_path, const STR & new_rel_path)
+    {
+        if (eptg::fs::path(eptg::str::to<std::string>(old_rel_path)).parent_path() != eptg::fs::path(eptg::str::to<std::string>(new_rel_path)).parent_path())
+            return RenameStatus::DifferentFolders;
+
+        auto it = files.collection.find(old_rel_path);
+        if (it == files.collection.end() || ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, old_rel_path))))
+            return RenameStatus::OriginNotFound;
+
+        if (files.has(new_rel_path))
+            return RenameStatus::DestinationExists;
+
+        STR old_full_path = path::append(path, old_rel_path);
+        STR new_full_path = path::append(path, new_rel_path);
+
+        eptg::fs::rename(eptg::str::to<std::string>(old_full_path), eptg::str::to<std::string>(new_full_path));
+        File<STR> file = it->second; // save a copy
+        files.collection.erase(it);
+        files.collection.insert({new_rel_path, file});
+
+        return RenameStatus::Success;
+    }
 };
 
 template<typename STR>
@@ -484,6 +516,8 @@ void save(const std::unique_ptr<Project<STR>> & project)
         eptg::json::array<STR> tags;
         for (const auto & tag : file.inherited_tags)
             tags.push_back(tag);
+        if (tags.empty())
+            continue;
         eptg::json::dict<STR> ok;
         ok.insert({"tags",tags});
         files.insert({id,std::move(ok)});
@@ -494,8 +528,10 @@ void save(const std::unique_ptr<Project<STR>> & project)
         if (tag.inherited_tags.size() == 0)
             continue;
         eptg::json::array<STR> tag_tags;
-        for (const auto & tag : tag.inherited_tags)
-            tag_tags.push_back(tag);
+        for (const auto & inherited_tag : tag.inherited_tags)
+            tag_tags.push_back(inherited_tag);
+        if (tag_tags.empty())
+            continue;
         eptg::json::dict<STR> ok;
         ok.insert({"tags",tag_tags});
         tags.insert({id,std::move(ok)});
@@ -504,7 +540,8 @@ void save(const std::unique_ptr<Project<STR>> & project)
     document["files"] = files;
     document["tags" ] = tags ;
 
-    std::string json_str = eptg::str::to<std::string>(eptg::json::to_str(document, 0));
+    auto str = eptg::json::to_str(document, 0);
+    std::string json_str = eptg::str::to<std::string>(str);
     std::ofstream out(eptg::str::to<std::string>(path::append(project->path, PROJECT_FILE_NAME)));
     out.write(json_str.c_str(), json_str.size());
     out.flush();
