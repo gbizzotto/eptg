@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <variant>
+#include <cwchar>
 
 namespace eptg {
 namespace json {
@@ -26,20 +27,22 @@ struct array : public std::vector<var<STR>>
 {
 };
 
-template<typename STR>
-dict<STR> read_dict(const char *& c);
-template<typename STR>
-array<STR> read_array(const char *& c);
-template<typename STR>
-STR read_string(const char *& c);
+template<typename STR, typename CHR>
+dict<STR> read_dict(const CHR *& c);
+template<typename STR, typename CHR>
+array<STR> read_array(const CHR *& c);
+template<typename STR, typename CHR>
+STR read_string(const CHR *& c);
 
-inline int read_int(const char *& c)
-{
-    return std::atoi(c);
-    while ((*c >= 0 && *c <= 9) || *c == '-')
-        c++;
-}
-inline void skip_separators(const char *& c)
+template<typename CHR>
+int read_int(const CHR *& c);
+template<>
+int read_int<char>(const char *& c);
+template<>
+int read_int<wchar_t>(const wchar_t *& c);
+
+template<typename CHR>
+void skip_separators(const CHR *& c)
 {
     while (*c == ' ' || *c == '\t' || *c == '\n' || *c == '\r')
         c++;
@@ -47,8 +50,8 @@ inline void skip_separators(const char *& c)
         throw;
 }
 
-template<typename STR>
-var<STR> read_var(const char *& c)
+template<typename STR, typename CHR>
+var<STR> read_var(const CHR *& c)
 {
     skip_separators(c);
     if (*c == '{')
@@ -63,8 +66,8 @@ var<STR> read_var(const char *& c)
         throw;
 }
 
-template<typename STR>
-STR read_string(const char *& c)
+template<typename STR, typename CHR>
+STR read_string(const CHR *& c)
 {
     STR str;
     if (*c != '"')
@@ -80,8 +83,8 @@ STR read_string(const char *& c)
 }
 
 
-template<typename STR>
-dict<STR> read_dict(const char *& c)
+template<typename STR, typename CHR>
+dict<STR> read_dict(const CHR *& c)
 {
     skip_separators(c);
     if (*c != '{')
@@ -110,8 +113,8 @@ dict<STR> read_dict(const char *& c)
     return result;
 }
 
-template<typename STR>
-array<STR> read_array(const char *& c)
+template<typename STR, typename CHR>
+array<STR> read_array(const CHR *& c)
 {
     skip_separators(c);
     if (*c != '[')

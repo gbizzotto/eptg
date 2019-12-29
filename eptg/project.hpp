@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <variant>
 #include <fstream>
+#include <locale>
 
 #include "eptg/search.hpp"
 #include "eptg/helpers.hpp"
@@ -434,9 +435,9 @@ void sweep(Project<STR> & project)
 {
     // sweep directory
     if ( ! eptg::fs::exists(eptg::str::to<std::string>(project.path)))
-        return;
+		return;
     for (const STR & str : path::sweep(project.path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif"}))
-        project.files.insert(str, File<STR>());
+		project.files.insert(str, File<STR>());
 }
 
 template<typename STR>
@@ -445,21 +446,22 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
     std::unique_ptr<Project<STR>> project = std::make_unique<Project<STR>>(full_path);
 
     if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME))))
-        return project;
-    std::string json_string;
+		return project;
+	std::wstring json_string;
     {
-        std::ifstream in(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME)));
-        std::stringstream buffer;
+		std::wifstream in(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME)), std::wifstream::binary);
+		in.imbue(std::locale(std::locale::classic(), new std::codecvt_utf8<wchar_t>));
+		std::wstringstream buffer;
         buffer << in.rdbuf();
         json_string = buffer.str();
     }
 
-    const char * c = json_string.c_str();
-    eptg::json::dict<STR> dict = eptg::json::read_dict<STR>(c);
+	const wchar_t * c = json_string.c_str();
+	eptg::json::dict<STR> dict = eptg::json::read_dict<STR>(c);
     if ( ! in(dict, "files") || ! std::holds_alternative<eptg::json::dict<STR>>(dict["files"]))
-        return project;
-    if ( ! in(dict, "tags" ) || ! std::holds_alternative<eptg::json::dict<STR>>(dict["tags" ]))
-        return project;
+		return project;
+	if ( ! in(dict, "tags" ) || ! std::holds_alternative<eptg::json::dict<STR>>(dict["tags" ]))
+		return project;
     for(const auto & [rel_path,file_var] : std::get<eptg::json::dict<STR>>(dict["files"]))
     {
         if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(project->path, rel_path)))) // prune deleted files
@@ -480,7 +482,7 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
                 file.insert_tag(tagname);
                 project->tags.insert(tagname, Tag<STR>());
             }
-        }
+		}
     }
     for(const auto & [tag_name,tag_var] : std::get<json::dict<STR>>(dict["tags"]))
     {
@@ -497,10 +499,10 @@ std::unique_ptr<Project<STR>> load(const STR & full_path)
             const STR & subtagname = std::get<STR>(subtagname_var);
             if (subtagname.size() > 0)
                 tag.insert_tag(subtagname);
-        }
-    }
+		}
+	}
 
-    return project;
+	return project;
 }
 
 template<typename STR>

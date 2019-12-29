@@ -23,6 +23,7 @@ SOURCES += \
     MyWizardCopyMove.cpp \
     eptg/helpers.cpp \
     eptg/in.cpp \
+    eptg/json.cpp \
     eptg/path.cpp \
     eptg/string.cpp \
     main.cpp \
