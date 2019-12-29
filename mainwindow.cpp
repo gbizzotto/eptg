@@ -17,6 +17,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QStringList>
+#include <QToolTip>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -424,13 +425,13 @@ void MainWindow::save_current_tag_tags()
         [this](const QString & selected_tag_name, const QString & st)
         {
             if (selected_tag_name == st)
-                ui->statusbar->showMessage("Can't self-tag.", 10000);
+                QToolTip::showText(ui->editTagTags->mapToGlobal(QPoint(0, 0)), "Can't self-tag.", nullptr, QRect(), 2000);
             else
             {
                 QString msg;
                 msg << "Can't add tag '" << st << "' to tag " << selected_tag_name << "' because '" << selected_tag_name
                     << "' or one of its parent tags has already been tagged '" << st << "'.";
-                ui->statusbar->showMessage(msg, 10000);
+                QToolTip::showText(ui->editTagTags->mapToGlobal(QPoint(0, 0)), msg, nullptr, QRect(), 5000);
             }
         });
 
@@ -612,7 +613,7 @@ void MainWindow::on_menuOpenContainingFolder_triggered()
     auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
     if (selected_items.size() == 0)
     {
-        ui->statusbar->showMessage("Nothing to open.", 5000);
+        QToolTip::showText(ui->tabWidget->mapToGlobal(QPoint(0, 0)), "Nothing to open.", nullptr, QRect(), 2000);
         return;
     }
     std::set<QString> selected_names = names_from_list(selected_items);
@@ -622,7 +623,7 @@ void MainWindow::on_menuOpenContainingFolder_triggered()
 //        qpaths.append(path::append(project->path, rel_path));
 
     if (!open_containing_folder(QStringList(path::append(project->path, *selected_names.begin()))))
-        ui->statusbar->showMessage("Can't open file browser.", 5000);
+        QToolTip::showText(QCursor::pos(), "Can't open file browser.", nullptr, QRect(), 2000);
 }
 
 void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
@@ -630,7 +631,7 @@ void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
     QString path = path::append(project->path, ui->fillList->item(index.row())->text());
 
     if (!open_containing_folder(QStringList(path)))
-        ui->statusbar->showMessage("Can't open file browser.", 5000);
+        QToolTip::showText(QCursor::pos(), "Can't open file browser.", nullptr, QRect(), 2000);
 }
 
 void MainWindow::on_menuQuit_triggered()
@@ -681,7 +682,7 @@ void MainWindow::on_menuProcess_triggered()
     auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
     if (selected_items.size() == 0)
     {
-        ui->statusbar->showMessage("No file selected.", 5000);
+        QToolTip::showText(QCursor::pos(), "No file selected.", nullptr, QRect(), 2000);
         return;
     }
     std::set<QString> selected_names = names_from_list(selected_items);
