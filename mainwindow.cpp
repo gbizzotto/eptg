@@ -42,11 +42,12 @@ MainWindow::MainWindow(QWidget *parent)
     ui->statusbar->addWidget(statusPercentTaggedLabel);
     statusSizeLabel = new QLabel(this);
     ui->statusbar->addWidget(statusSizeLabel);
+	ui->previewCheckBox->setCheckState(Qt::CheckState::PartiallyChecked);
 
     ui->tagsEdit   ->installEventFilter(this);
     ui->editTagTags->installEventFilter(this);
     ui->searchEdit ->installEventFilter(this);
-    ui->pathEdit   ->installEventFilter(this);
+	ui->pathEdit   ->installEventFilter(this);
 
     // load settings
     QSettings settings("ttt", "eptg");
@@ -506,7 +507,15 @@ void MainWindow::on_tagList_itemSelectionChanged()
 void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 {
     if (selected_items_text.size() == 0)
+	{
         ui->fillPreview->setPixmap(QPixmap());
+		statusSizeLabel->setText("");
+	}
+	else if (ui->previewCheckBox->checkState() == Qt::CheckState::Unchecked)
+	{
+		ui->fillPreview->setText("Preview disabled");
+		statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
+	}
     else if (selected_items_text.size() == 1)
     {
         auto full_path = path::append(project->path, *selected_items_text.begin());
@@ -517,7 +526,13 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
             ui->fillPreview->setPixmap(image);
         statusSizeLabel->setText(QString::number(image.width()) + " x " + QString::number(image.height()));
     }
-    else if (selected_items_text.size() <= 64)
+	else if (selected_items_text.size() > 64 && ui->previewCheckBox->checkState() == Qt::CheckState::PartiallyChecked)
+	{
+		ui->fillPreview->setText("Preview disabled:\n"
+								 "Too many files selected.");
+		statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
+	}
+	else
     {
         QPixmap image_result(ui->fillPreview->width(), ui->fillPreview->height());
         image_result.fill(Qt::transparent);
@@ -537,12 +552,10 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
                 QRectF sourceRect(0, 0, image.width(), image.height());
                 QPainter painter(&image_result);
                 painter.drawPixmap(targetRect, image, sourceRect);
-            }
-        statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
+			}
         ui->fillPreview->setPixmap(image_result);
-    }
-    else
-        ui->fillPreview->setText("Too many files selected.");
+		statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
+	}
 }
 
 void MainWindow::on_fillList_itemSelectionChanged()
@@ -569,11 +582,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
         ui->pathEdit->setText("Many...");
     }
 
-    // prepare preview
-    if (ui->previewCheckBox->checkState() == Qt::CheckState::Checked)
-        this->preview_pictures(selected_names);
-    else
-        ui->fillPreview->setPixmap(QPixmap());
+	this->preview_pictures(selected_names);
 
     // set tag line into edit
     std::set<eptg::taggable<QString>*> selected_files = project->files.get_all_by_name(selected_names);
@@ -706,17 +715,6 @@ void MainWindow::on_menuProcess_triggered()
     std::make_unique<MyDialogProcess>(*this->project, selected_names, this)->exec();
 }
 
-void MainWindow::on_previewCheckBox_toggled(bool checked)
-{
-    std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
-
-    // prepare preview
-    if (checked)
-        this->preview_pictures(selected_names);
-    else
-        ui->fillPreview->setPixmap(QPixmap());
-}
-
 void MainWindow::on_menuCopyFiles_triggered()
 {
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, false));
@@ -787,4 +785,11 @@ void MainWindow::on_pathEdit_editingFinished()
 
     // restore selected item
     ui->fillList->selectedItems().front()->setData(Qt::EditRole, ui->pathEdit->text());
+}
+
+void MainWindow::on_previewCheckBox_stateChanged(int)
+{
+	std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
+
+	this->preview_pictures(selected_names);
 }

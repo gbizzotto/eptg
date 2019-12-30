@@ -66,9 +66,7 @@ private slots:
 
     void on_menuFindSimilar_triggered();
 
-    void on_menuProcess_triggered();
-
-    void on_previewCheckBox_toggled(bool checked);
+	void on_menuProcess_triggered();
 
     void on_menuCopyFiles_triggered();
 
@@ -81,6 +79,8 @@ private slots:
     void on_menuRename_triggered();
 
     void on_pathEdit_editingFinished();
+
+	void on_previewCheckBox_stateChanged(int arg1);
 
 private:
     std::unique_ptr<eptg::Project<QString>> project;
