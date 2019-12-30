@@ -12,6 +12,8 @@
 #include <QTableWidgetItem>
 #include <QListWidget>
 #include <QString>
+#include <QPixmap>
+#include <QSize>
 
 #include "eptg/path.hpp"
 #include "eptg/string.hpp"
@@ -37,7 +39,7 @@ std::set<QString> names_from_list(const QListWidget * list);
 
 
 bool images_close(const QImage & left, const QImage & right, int allowed_difference);
-
+QPixmap make_preview(const QString & base_path, const std::set<QString> & selected_items_text, const QSize & size);
 
 template<typename T>
 std::set<T> added(const std::set<T> & before, const std::set<T> & after)
