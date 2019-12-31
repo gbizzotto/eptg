@@ -28,7 +28,7 @@ void MyDialogFindSimilar::on_buttonBox_clicked(QAbstractButton *button)
         this->progressBar->setEnabled(true);
         this->horizontalSlider->setEnabled(false);
         button->setEnabled(false);
-        std::vector<std::vector<QString>> groups_of_similars = get_similar(project.path, project.files.collection, this->horizontalSlider->value(),
+		std::vector<std::vector<QString>> groups_of_similars = get_similar(project.get_path(), project.get_files().collection, this->horizontalSlider->value(),
             [this](size_t count, size_t total) -> bool
             {
                 this->progressBar->setValue(int(100*count/total));

@@ -25,7 +25,7 @@ MyDialogProcess::MyDialogProcess(const eptg::Project<QString> & project, const s
 
 QStringList MyDialogProcess::get_commands() const
 {
-    const QString base_path = project.path;
+    const QString base_path = project.get_path();
     const QStringList base_commands = this->plainTextEdit->toPlainText().split('\n', QString::SkipEmptyParts);
     QStringList commands;
 

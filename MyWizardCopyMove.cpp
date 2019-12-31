@@ -27,13 +27,13 @@ MyWizardCopyMove::MyWizardCopyMove(eptg::Project<QString> & project, QWidget * p
     this->setWindowTitle(is_move ? "Move files" : "Copy files");
     this->selectedFilesRadio->setText(this->selectedFilesRadio->text() + " (" + QString::number(selected_files_count) + ")");
     this->   shownFilesRadio->setText(this->   shownFilesRadio->text() + " (" + QString::number(shown_files_count   ) + ")");
-    this-> projectFilesRadio->setText(this-> projectFilesRadio->text() + " (" + QString::number(project.files.size()) + ")");
-    this->destFolderLineEdit->setText(project.path);
+	this-> projectFilesRadio->setText(this-> projectFilesRadio->text() + " (" + QString::number(project.get_files().size()) + ")");
+    this->destFolderLineEdit->setText(project.get_path());
 }
 
 void MyWizardCopyMove::on_toolButton_clicked()
 {
-    QString default_path_for_open_dialog = project.path;
+    QString default_path_for_open_dialog = project.get_path();
     if (destFolderLineEdit->text().size() != 0)
         default_path_for_open_dialog = destFolderLineEdit->text();
     QString path = QFileDialog::getExistingDirectory(this, "Select folder", default_path_for_open_dialog);
@@ -45,7 +45,7 @@ void MyWizardCopyMove::on_destFolderLineEdit_textChanged(const QString &edited_t
 {
     QStringList messages;
 
-    if ( ! path::is_sub(project.path, edited_text))
+    if ( ! path::is_sub(project.get_path(), edited_text))
     {
         messages += "- <font color=red>"
                     "Warning: Moving files out of this project.<br/>"
@@ -64,7 +64,7 @@ void MyWizardCopyMove::on_destFolderLineEdit_textChanged(const QString &edited_t
 void MyWizardCopyMove::make_preview()
 {
     auto new_preview = std::make_unique<eptg::CopyMoveData<QString>>(
-         project.path
+         project.get_path()
         ,is_move
         , selectedFilesRadio->isChecked()
          ?eptg::CopyMoveData<QString>::WhichFiles::Selected
@@ -82,7 +82,7 @@ void MyWizardCopyMove::make_preview()
     {
         preview.swap(new_preview);
         preview->process(project
-                        ,keys(project.files.collection)
+						,keys(project.get_files().collection)
                         ,names_from_list(main_window->get_ui()->fillList)
                         ,names_from_list(main_window->get_ui()->fillList->selectionModel()->selectedIndexes())
                         );
@@ -111,7 +111,7 @@ void MyWizardCopyMove::on_CopyMoveWizard_currentIdChanged(int page_id)
                                ?"Selected files (" + QString::number(main_window->get_ui()->fillList->selectionModel()->selectedIndexes().count()) + ")"
                                :((preview->which_files == eptg::CopyMoveData<QString>::WhichFiles::Shown)
                                  ?"All shown (" + QString::number(names_from_list(main_window->get_ui()->fillList).size()) + ")"
-                                 :"All files (" + QString::number(project.files.size()) + ")"
+								 :"All files (" + QString::number(project.get_files().size()) + ")"
                                 )
                                );
         whereToLabel->setText(preview->dest);
@@ -162,10 +162,10 @@ void MyWizardCopyMove::on_CopyMoveWizard_finished(int result)
 
     make_preview();
 
-    std::unique_ptr<eptg::Project<QString>> dest_project = project.execute(*preview);
+	eptg::Project<QString> dest_project = project.execute(*preview);
 
-    if (path::is_sub(project.path, preview->dest)) // internal copy or move
-        project.absorb(*dest_project);
+    if (path::is_sub(project.get_path(), preview->dest)) // internal copy or move
+		project.absorb(dest_project);
     else
-        eptg::save(dest_project);
+		dest_project.save();
 }

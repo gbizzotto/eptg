@@ -36,7 +36,7 @@ private slots:
     void go_to_first_untagged();
     void preview_pictures(const std::set<QString> & selected_items_text);
     void adjust_ui_for_project();
-    void save();
+	void save(bool force = false);
 
     void on_menuOpenRecent(QAction *action);
 

@@ -89,11 +89,12 @@ void MainWindow::closeEvent(QCloseEvent *)
     save();
 }
 
-void MainWindow::save()
+void MainWindow::save(bool force)
 {
     save_current_file_tags();
     save_current_tag_tags();
-    eptg::save(project);
+	if (project)
+		project->save(force);
 }
 
 void MainWindow::on_menuOpenRecent(QAction *action)
@@ -214,8 +215,8 @@ void MainWindow::open(const QString & pathName)
 {
     save();
 
-    project = eptg::load(pathName);
-    eptg::sweep(*project);
+	project.reset(new eptg::Project(pathName));
+	project->sweep();
 
     adjust_ui_for_project();
 }
@@ -253,18 +254,18 @@ void MainWindow::add_open_recent(const QString & pathName)
 
 void MainWindow::adjust_ui_for_project()
 {
-    this->add_open_recent(project->path);
+	this->add_open_recent(project->get_path());
 
     ui->fillList->clear();
-    for (const auto & p : project->files.collection)
+	for (const auto & p : project->get_files().collection)
         ui->fillList->addItem(p.first);
-    statusCountLabel->setText(QString::number(project->files.size()) + " files");
-    if (project->files.size() == 0)
+	statusCountLabel->setText(QString::number(project->get_files().size()) + " files");
+	if (project->get_files().size() == 0)
         statusPercentTaggedLabel->setText("");
     else
     {
         double percent_tagged = 0;
-        percent_tagged = 100.0 * project->files.count_tagged() / project->files.size();
+		percent_tagged = 100.0 * project->get_files().count_tagged() / project->get_files().size();
         QString str = QString::number(percent_tagged);
         str.truncate(4);
         if (str.endsWith(","))
@@ -274,21 +275,21 @@ void MainWindow::adjust_ui_for_project()
     ui->tagsEdit->clear();
     ui->fillPreview->setPixmap(QPixmap());
     if (ui->fillList->count() > 0)
-        ui->fillList->setCurrentRow(0);
-    this->setWindowTitle("eptgQt - " + project->path);
+		ui->fillList->setCurrentRow(0);
+	this->setWindowTitle("eptgQt - " + project->get_path());
 
     ui->tagsEdit->setFocus();
 
     // known tags for autocompletion
     known_tags.clear();
-    for (const auto & p : project->files.collection)
+	for (const auto & p : project->get_files().collection)
         for (const QString & t : p.second.inherited_tags)
         {
             if (known_tags.find(t) == known_tags.end())
                 known_tags[t] = 0;
             known_tags[t]++;
         }
-    for (const auto & [key,val] : project->tags.collection)
+	for (const auto & [key,val] : project->get_tags().collection)
     {
         if (known_tags.find(key) == known_tags.end())
             known_tags[key] = 0;
@@ -377,12 +378,12 @@ void MainWindow::on_tagsEdit_returnPressed()
     idx = (idx+1) % ui->fillList->model()->rowCount();
     ui->fillList->setCurrentIndex(ui->fillList->model()->index(idx, 0));
 
-    if (project->files.size() == 0)
+	if (project->get_files().size() == 0)
         statusPercentTaggedLabel->setText("");
     else
     {
         double percent_tagged = 0;
-        percent_tagged = 100.0 * project->files.count_tagged() / project->files.size();
+		percent_tagged = 100.0 * project->get_files().count_tagged() / project->get_files().size();
         QString str = QString::number(percent_tagged);
         str.truncate(4);
         if (str.endsWith(","))
@@ -400,9 +401,9 @@ void MainWindow::on_searchEdit_returnPressed()
 
     std::vector<QString> rel_paths = project->search(SearchNode(ui->searchEdit->text()));
     for (const auto & rel_path : rel_paths)
-        ui->fillList->addItem(rel_path);
+		ui->fillList->addItem(rel_path);
 
-    statusCountLabel->setText(QString::number(rel_paths.size()) + " / " + QString::number(project->files.size()) + " files");
+	statusCountLabel->setText(QString::number(rel_paths.size()) + " / " + QString::number(project->get_files().size()) + " files");
     ui->fillList->setCurrentIndex(ui->fillList->model()->index(0, 0));
 
     ui->searchEdit->deselect();
@@ -481,9 +482,9 @@ void MainWindow::on_tagList_itemSelectionChanged()
     // prepare preview
     QStringList hierarchy;
 
-    for ( std::set<QString> tags = project->get_common_tags(project->tags.get_all_by_name(selected_names))
+	for ( std::set<QString> tags = project->get_common_tags(project->get_tags().get_all_by_name(selected_names))
         ; tags.size() > 0
-        ; tags = project->get_common_tags(project->tags.get_all_by_name(tags)) )
+		; tags = project->get_common_tags(project->get_tags().get_all_by_name(tags)) )
     {
         hierarchy.insert(0, accumulate(tags, QStringList()).join(", "));
     }
@@ -498,7 +499,7 @@ void MainWindow::on_tagList_itemSelectionChanged()
     ui->tagTreePreview->setText(hierarchy.join("<br/>↑<br/>"));
 
     // set tag line into edit
-    std::set<eptg::taggable<QString>*> selected_tags = project->tags.get_all_by_name(selected_names);
+	std::set<const eptg::taggable<QString>*> selected_tags = project->get_tags().get_all_by_name(selected_names);
     QStringList common_tags = accumulate(project->get_common_tags(selected_tags), QStringList());
     ui->editTagTags->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->editTagTags->setFocus();
@@ -522,7 +523,7 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 		QSize orig_size;
 		QPixmap image;
 		int file_size;
-		std::tie(image, orig_size, file_size) = make_image(path::append(project->path, *selected_items_text.begin()), ui->fillPreview->size(), ui->fillPreview->size());
+		std::tie(image, orig_size, file_size) = make_image(path::append(project->get_path(), *selected_items_text.begin()), ui->fillPreview->size(), ui->fillPreview->size());
 
 		ui->fillPreview->setPixmap(image);
 		if (orig_size.isValid())
@@ -539,7 +540,7 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 	}
 	else
 	{
-		ui->fillPreview->setPixmap(make_preview(project->path, selected_items_text, ui->fillPreview->size()));
+		ui->fillPreview->setPixmap(make_preview(project->get_path(), selected_items_text, ui->fillPreview->size()));
 		statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
 	}
 }
@@ -571,7 +572,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
 	this->preview_pictures(selected_names);
 
     // set tag line into edit
-    std::set<eptg::taggable<QString>*> selected_files = project->files.get_all_by_name(selected_names);
+	std::set<const eptg::taggable<QString>*> selected_files = project->get_files().get_all_by_name(selected_names);
     QStringList common_tags = accumulate(project->get_common_tags(selected_files), QStringList());
     ui->tagsEdit->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->tagsEdit->setFocus();
@@ -631,15 +632,15 @@ void MainWindow::on_menuOpenContainingFolder_triggered()
 
 //    QStringList qpaths;
 //    for (const QString & rel_path : titles)
-//        qpaths.append(path::append(project->path, rel_path));
+//        qpaths.append(path::append(project->get_path(), rel_path));
 
-    if (!open_containing_folder(QStringList(path::append(project->path, *selected_names.begin()))))
+	if (!open_containing_folder(QStringList(path::append(project->get_path(), *selected_names.begin()))))
         QToolTip::showText(QCursor::pos(), "Can't open file browser.", nullptr, QRect(), 2000);
 }
 
 void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
 {
-    QString path = path::append(project->path, ui->fillList->item(index.row())->text());
+	QString path = path::append(project->get_path(), ui->fillList->item(index.row())->text());
 
     if (!open_containing_folder(QStringList(path)))
         QToolTip::showText(QCursor::pos(), "Can't open file browser.", nullptr, QRect(), 2000);
@@ -660,7 +661,7 @@ void MainWindow::go_to_first_untagged()
 {
     for (int i=0 ; i<ui->fillList->count() ; i++)
     {
-        eptg::File<QString> * f = project->files.find(ui->fillList->item(i)->data(Qt::DisplayRole).toString());
+		const eptg::File<QString> * f = project->get_files().find(ui->fillList->item(i)->data(Qt::DisplayRole).toString());
         if (f == nullptr || f->inherited_tags.size() == 0)
         {
             ui->fillList->setCurrentRow(i);
@@ -706,7 +707,7 @@ void MainWindow::on_menuCopyFiles_triggered()
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, false));
     if (copy_move_wizard->exec())
     {
-        if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
+		if ( ! path::is_sub(project->get_path(), copy_move_wizard->preview->dest))
             this->add_open_recent(copy_move_wizard->preview->dest);
         else
             adjust_ui_for_project();
@@ -718,7 +719,7 @@ void MainWindow::on_menuMoveFiles_triggered()
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, true));
     if (copy_move_wizard->exec())
     {
-        if ( ! path::is_sub(project->path, copy_move_wizard->preview->dest))
+		if ( ! path::is_sub(project->get_path(), copy_move_wizard->preview->dest))
             this->add_open_recent(copy_move_wizard->preview->dest);
         adjust_ui_for_project();
     }
@@ -731,7 +732,7 @@ void MainWindow::on_menuSelect_all_triggered()
 
 void MainWindow::on_menuSave_triggered()
 {
-    save();
+	save(true);
 }
 
 void MainWindow::on_menuRename_triggered()

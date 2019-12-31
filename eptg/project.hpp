@@ -78,17 +78,6 @@ struct taggable_collection
         }
         return result;
     }
-    std::set<taggable<STR>*> get_all_by_name(const std::set<STR> & ids)
-    {
-        std::set<taggable<STR>*> result;
-        for (const STR & id : ids)
-        {
-            T * t = find(id);
-            if (t != nullptr)
-                result.insert(t);
-        }
-        return result;
-    }
     std::set<const taggable<STR>*> get_all_by_name(const std::set<STR> & ids) const
     {
         std::set<const taggable<STR>*> result;
@@ -103,31 +92,100 @@ struct taggable_collection
 };
 
 template<typename STR>
-struct Project;
-
-template<typename STR>
-std::unique_ptr<Project<STR>> load(const STR & full_path);
-
-template<typename STR>
-struct Project
+class Project
 {
+private:
     STR path;
     taggable_collection<STR,File<STR>> files;
     taggable_collection<STR,Tag <STR>> tags ;
+	bool needs_saving;
 
+public:
     inline Project(const STR & full_path)
         : path(full_path)
-    {}
+		, needs_saving(false)
+	{
+		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME))))
+			return;
+		std::wstring json_string;
+		{
+			std::wifstream in(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME)), std::wifstream::binary);
+			in.imbue(std::locale(std::locale::classic(), new std::codecvt_utf8<wchar_t>));
+			std::wstringstream buffer;
+			buffer << in.rdbuf();
+			json_string = buffer.str();
+		}
+
+		const wchar_t * c = json_string.c_str();
+		eptg::json::dict<STR> dict = eptg::json::read_dict<STR>(c);
+		if ( ! in(dict, "files") || ! std::holds_alternative<eptg::json::dict<STR>>(dict["files"]))
+			return;
+		if ( ! in(dict, "tags" ) || ! std::holds_alternative<eptg::json::dict<STR>>(dict["tags" ]))
+			return;
+		for(const auto & [rel_path,file_var] : std::get<eptg::json::dict<STR>>(dict["files"]))
+		{
+			if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, rel_path)))) // prune deleted files
+				continue;
+			if ( ! std::holds_alternative<json::dict<STR>>(file_var))
+				continue;
+			json::dict<STR> file_dict = std::get<json::dict<STR>>(file_var);
+			File<STR> & file = files.insert(rel_path, File<STR>());
+			if ( ! in(file_dict, "tags" ) || ! std::holds_alternative<json::array<STR>>(file_dict["tags" ]))
+				continue;
+			for (const auto & tagname_var : std::get<json::array<STR>>(file_dict["tags"]))
+			{
+				if ( ! std::holds_alternative<STR>(tagname_var))
+					continue;
+				const STR & tagname = std::get<STR>(tagname_var);
+				if (tagname.size() > 0)
+				{
+					file.insert_tag(tagname);
+					tags.insert(tagname, Tag<STR>());
+				}
+			}
+		}
+		for(const auto & [tag_name,tag_var] : std::get<json::dict<STR>>(dict["tags"]))
+		{
+			Tag<STR> & tag = tags.insert(tag_name, Tag<STR>());
+			if ( ! std::holds_alternative<json::dict<STR>>(tag_var))
+				continue;
+			json::dict<STR> tag_dict = std::get<json::dict<STR>>(tag_var);
+			if ( ! in(tag_dict, "tags"))
+				continue;
+			for (const auto subtagname_var : std::get<json::array<STR>>(tag_dict["tags"]))
+			{
+				if ( ! std::holds_alternative<STR>(subtagname_var))
+					continue;
+				const STR & subtagname = std::get<STR>(subtagname_var);
+				if (subtagname.size() > 0)
+					tag.insert_tag(subtagname);
+			}
+		}
+	}
+
+	const STR & get_path() const { return path; }
+	const decltype(files) & get_files       () const {                         return files; }
+		  decltype(files) & get_files_modify()       { set_needs_saving(true); return files; }
+	const decltype(files) & get_tags        () const {                         return tags ; }
+		  decltype(files) & get_tags_modify ()       { set_needs_saving(true); return tags ; }
+	bool get_needs_saving() const { return needs_saving; }
+	void set_needs_saving(bool f)
+	{
+		needs_saving |= f;
+	}
+	void clear_needs_saving() { needs_saving = false; }
 
     bool absorb(const Project & sub_project)
     {
-        if ( ! path::is_sub(path, sub_project.path))
+		if ( ! path::is_sub(path, sub_project.get_path()))
             return false;
 
-        STR sub_project_rel_path = path::relative(path, sub_project.path);
+		set_needs_saving(true);
+
+		STR sub_project_rel_path = path::relative(path, sub_project.get_path());
 
         std::set<STR> tags_used;
-        for (const auto & [rel_path,file] : sub_project.files.collection)
+		for (const auto & [rel_path,file] : sub_project.get_files().collection)
         {
             const STR new_rel_path = path::append(sub_project_rel_path, rel_path);
             files.insert(new_rel_path, eptg::taggable(file));
@@ -202,13 +260,6 @@ struct Project
         }
 
         return result;
-    }
-    std::set<STR> get_common_tags(const std::set<taggable<STR>*> & taggables)
-    {
-        std::set<const taggable<STR>*> const_taggables;
-        for (taggable<STR> *t : taggables)
-            const_taggables.insert(t);
-        return get_common_tags(const_taggables);
     }
     bool inherits(const taggable<STR> & taggable, std::set<STR> tags_to_have) const
     {
@@ -301,6 +352,8 @@ struct Project
         if (added_tags.empty() && removed_tags.empty())
             return;
 
+		set_needs_saving(true);
+
         for (const STR & taggable_name : taggables_names)
         {
             taggable<STR> * tagbl = (ISTAG?tags:files).find(taggable_name);
@@ -333,12 +386,15 @@ struct Project
     }
 
     // returns whether a new project has been created in destination folder.
-    std::unique_ptr<Project> execute(const eptg::CopyMoveData<STR> & copy_move_data)
-    {
-        auto dest_project = load(copy_move_data.dest);
+	Project execute(const eptg::CopyMoveData<STR> & copy_move_data)
+	{
+		Project dest_project(copy_move_data.dest);
         std::set<STR> tags_used;
 
         bool is_internal = path::is_sub(path, copy_move_data.dest);
+
+		set_needs_saving(is_internal);
+		set_needs_saving(copy_move_data.is_move);
 
         for (const auto & filenames_tuple : copy_move_data.files)
         {
@@ -361,7 +417,7 @@ struct Project
                               );
 
             // files in Project
-            eptg::File<STR> & new_file = dest_project->files.insert(new_rel_path, eptg::File<STR>{});
+			eptg::File<STR> & new_file = dest_project.get_files_modify().insert(new_rel_path, eptg::File<STR>{});
             const eptg::File<STR> * old_file = files.find(old_rel_path);
 
             // tags in Project
@@ -382,7 +438,7 @@ struct Project
         {
             const STR & tag = *tags_used.begin();
             const eptg::Tag<STR> * tag_in_old_project = tags.find(tag);
-                  eptg::Tag<STR> & tag_in_new_project = dest_project->tags.insert(tag, eptg::Tag<STR>{});
+				  eptg::Tag<STR> & tag_in_new_project = dest_project.get_tags_modify().insert(tag, eptg::Tag<STR>{});
 
             if (tag_in_old_project)
                 for (const STR & inherited_tag : tag_in_old_project->inherited_tags)
@@ -418,6 +474,8 @@ struct Project
         if (files.has(new_rel_path))
             return RenameStatus::DestinationExists;
 
+		set_needs_saving(true);
+
         STR old_full_path = path::append(path, old_rel_path);
         STR new_full_path = path::append(path, new_rel_path);
 
@@ -428,127 +486,66 @@ struct Project
 
         return RenameStatus::Success;
     }
-};
 
-template<typename STR>
-void sweep(Project<STR> & project)
-{
-    // sweep directory
-    if ( ! eptg::fs::exists(eptg::str::to<std::string>(project.path)))
-		return;
-	for (const STR & str : path::sweep(project.path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pbm", ".pgm", ".ppm", ".xbm", ".xpm", ".txt"}))
-		project.files.insert(str, File<STR>());
-}
-
-template<typename STR>
-std::unique_ptr<Project<STR>> load(const STR & full_path)
-{
-    std::unique_ptr<Project<STR>> project = std::make_unique<Project<STR>>(full_path);
-
-    if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME))))
-		return project;
-	std::wstring json_string;
-    {
-		std::wifstream in(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME)), std::wifstream::binary);
-		in.imbue(std::locale(std::locale::classic(), new std::codecvt_utf8<wchar_t>));
-		std::wstringstream buffer;
-        buffer << in.rdbuf();
-        json_string = buffer.str();
-    }
-
-	const wchar_t * c = json_string.c_str();
-	eptg::json::dict<STR> dict = eptg::json::read_dict<STR>(c);
-    if ( ! in(dict, "files") || ! std::holds_alternative<eptg::json::dict<STR>>(dict["files"]))
-		return project;
-	if ( ! in(dict, "tags" ) || ! std::holds_alternative<eptg::json::dict<STR>>(dict["tags" ]))
-		return project;
-    for(const auto & [rel_path,file_var] : std::get<eptg::json::dict<STR>>(dict["files"]))
-    {
-        if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(project->path, rel_path)))) // prune deleted files
-            continue;
-        if ( ! std::holds_alternative<json::dict<STR>>(file_var))
-            continue;
-        json::dict<STR> file_dict = std::get<json::dict<STR>>(file_var);
-        File<STR> & file = project->files.insert(rel_path, File<STR>());
-        if ( ! in(file_dict, "tags" ) || ! std::holds_alternative<json::array<STR>>(file_dict["tags" ]))
-            continue;
-        for (const auto & tagname_var : std::get<json::array<STR>>(file_dict["tags"]))
-        {
-            if ( ! std::holds_alternative<STR>(tagname_var))
-                continue;
-            const STR & tagname = std::get<STR>(tagname_var);
-            if (tagname.size() > 0)
-            {
-                file.insert_tag(tagname);
-                project->tags.insert(tagname, Tag<STR>());
-            }
-		}
-    }
-    for(const auto & [tag_name,tag_var] : std::get<json::dict<STR>>(dict["tags"]))
-    {
-        Tag<STR> & tag = project->tags.insert(tag_name, Tag<STR>());
-        if ( ! std::holds_alternative<json::dict<STR>>(tag_var))
-            continue;
-        json::dict<STR> tag_dict = std::get<json::dict<STR>>(tag_var);
-        if ( ! in(tag_dict, "tags"))
-            continue;
-        for (const auto subtagname_var : std::get<json::array<STR>>(tag_dict["tags"]))
-        {
-            if ( ! std::holds_alternative<STR>(subtagname_var))
-                continue;
-            const STR & subtagname = std::get<STR>(subtagname_var);
-            if (subtagname.size() > 0)
-                tag.insert_tag(subtagname);
-		}
+	void sweep()
+	{
+		// sweep directory
+		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path)))
+			return;
+		for (const STR & str : path::sweep(path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pbm", ".pgm", ".ppm", ".xbm", ".xpm", ".txt"}))
+			files.insert(str, File<STR>());
 	}
 
-	return project;
-}
+	void save(bool force = false)
+	{
+		const_cast<const Project*>(this)->save(force);
+		needs_saving = false;
+	}
+	void save(bool force = false) const
+	{
+		if ( ! get_needs_saving() && ! force)
+			return;
 
-template<typename STR>
-void save(const std::unique_ptr<Project<STR>> & project)
-{
-    if ( ! project)
-        return;
-    eptg::json::dict<STR> files;
-    for (const auto & [id,file] : project->files.collection)
-    {
-        if (file.inherited_tags.size() == 0)
-            continue;
-        eptg::json::array<STR> tags;
-        for (const auto & tag : file.inherited_tags)
-            tags.push_back(tag);
-        if (tags.empty())
-            continue;
-        eptg::json::dict<STR> ok;
-        ok.insert({"tags",tags});
-        files.insert({id,std::move(ok)});
-    }
-    eptg::json::dict<STR> tags;
-    for (const auto & [id,tag] : project->tags.collection)
-    {
-        if (tag.inherited_tags.size() == 0)
-            continue;
-        eptg::json::array<STR> tag_tags;
-        for (const auto & inherited_tag : tag.inherited_tags)
-            tag_tags.push_back(inherited_tag);
-        if (tag_tags.empty())
-            continue;
-        eptg::json::dict<STR> ok;
-        ok.insert({"tags",tag_tags});
-        tags.insert({id,std::move(ok)});
-    }
-    eptg::json::dict<STR> document;
-    document["files"] = files;
-    document["tags" ] = tags ;
+		eptg::json::dict<STR> files_dict;
+		for (const auto & [id,file] : this->files.collection)
+		{
+			if (file.inherited_tags.size() == 0)
+				continue;
+			eptg::json::array<STR> tags_array;
+			for (const auto & tag : file.inherited_tags)
+				tags_array.push_back(tag);
+			if (tags_array.empty())
+				continue;
+			eptg::json::dict<STR> ok;
+			ok.insert({"tags",tags_array});
+			files_dict.insert({id,std::move(ok)});
+		}
+		eptg::json::dict<STR> tags_dict;
+		for (const auto & [id,tag] : this->tags.collection)
+		{
+			if (tag.inherited_tags.size() == 0)
+				continue;
+			eptg::json::array<STR> tags_array;
+			for (const auto & inherited_tag : tag.inherited_tags)
+				tags_array.push_back(inherited_tag);
+			if (tags_array.empty())
+				continue;
+			eptg::json::dict<STR> ok;
+			ok.insert({"tags",tags_array});
+			tags_dict.insert({id,std::move(ok)});
+		}
+		eptg::json::dict<STR> document;
+		document["files"] = files_dict;
+		document["tags" ] = tags_dict ;
 
-    auto str = eptg::json::to_str(document, 0);
-    std::string json_str = eptg::str::to<std::string>(str);
-    std::ofstream out(eptg::str::to<std::string>(path::append(project->path, PROJECT_FILE_NAME)));
-    out.write(json_str.c_str(), json_str.size());
-    out.flush();
-    out.close();
-}
+		auto str = eptg::json::to_str(document, 0);
+		std::string json_str = eptg::str::to<std::string>(str);
+		std::ofstream out(eptg::str::to<std::string>(path::append(path, PROJECT_FILE_NAME)));
+		out.write(json_str.c_str(), json_str.size());
+		out.flush();
+		out.close();
+	}
+};
 
 } // namespace
 
