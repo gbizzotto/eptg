@@ -39,6 +39,7 @@ std::set<QString> names_from_list(const QListWidget * list);
 
 
 bool images_close(const QImage & left, const QImage & right, int allowed_difference);
+std::tuple<QPixmap,QSize,int> make_image  (const QString & full_path, const QSize & initial_size, const QSize & max_size);
 QPixmap make_preview(const QString & base_path, const std::set<QString> & selected_items_text, const QSize & size);
 
 template<typename T>
@@ -139,6 +140,8 @@ std::vector<std::vector<STR>> get_similar(const STR & base_path, const C & rel_p
     {
         STR full_path = path::append(base_path, rel_path);
         QImage thumb = QImage(eptg::str::to<QString>(full_path)).scaled(8, 8);
+		if (thumb.isNull())
+			continue;
         double grad = 0;
         for (int y=0 ; y<8 ; y++)
             for (int x=0 ; x<8 ; x++)

@@ -513,21 +513,26 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 	}
 	else if (ui->previewCheckBox->checkState() == Qt::CheckState::Unchecked)
 	{
+		ui->fillPreview->setAlignment(Qt::AlignVCenter | Qt::AlignCenter);
 		ui->fillPreview->setText("Preview disabled");
 		statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");
 	}
     else if (selected_items_text.size() == 1)
     {
-        auto full_path = path::append(project->path, *selected_items_text.begin());
-        QPixmap image(full_path);
-        if (image.width() > ui->fillPreview->width() || image.height() > ui->fillPreview->height())
-            ui->fillPreview->setPixmap(image.scaled(ui->fillPreview->width(), ui->fillPreview->height(), Qt::AspectRatioMode::KeepAspectRatio));
-        else
-            ui->fillPreview->setPixmap(image);
-        statusSizeLabel->setText(QString::number(image.width()) + " x " + QString::number(image.height()));
+		QSize orig_size;
+		QPixmap image;
+		int file_size;
+		std::tie(image, orig_size, file_size) = make_image(path::append(project->path, *selected_items_text.begin()), ui->fillPreview->size(), ui->fillPreview->size());
+
+		ui->fillPreview->setPixmap(image);
+		if (orig_size.isValid())
+			statusSizeLabel->setText(QString::number(image.width()) + " x " + QString::number(image.height()) + " px");
+		else
+			statusSizeLabel->setText(QString::number(file_size) + " bytes");
     }
 	else if (selected_items_text.size() > 64 && ui->previewCheckBox->checkState() == Qt::CheckState::PartiallyChecked)
 	{
+		ui->fillPreview->setAlignment(Qt::AlignVCenter | Qt::AlignCenter);
 		ui->fillPreview->setText("Preview disabled:\n"
 								 "Too many files selected.");
 		statusSizeLabel->setText(QString::number(selected_items_text.size()) + " selected");

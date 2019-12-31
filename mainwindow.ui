@@ -183,6 +183,7 @@
             </property>
             <property name="font">
              <font>
+              <family>Arial</family>
               <pointsize>20</pointsize>
               <weight>50</weight>
               <bold>false</bold>
@@ -293,6 +294,7 @@
             </property>
             <property name="font">
              <font>
+              <family>Arial</family>
               <pointsize>20</pointsize>
              </font>
             </property>

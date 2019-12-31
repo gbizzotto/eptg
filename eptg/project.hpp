@@ -436,7 +436,7 @@ void sweep(Project<STR> & project)
     // sweep directory
     if ( ! eptg::fs::exists(eptg::str::to<std::string>(project.path)))
 		return;
-    for (const STR & str : path::sweep(project.path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif"}))
+	for (const STR & str : path::sweep(project.path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pbm", ".pgm", ".ppm", ".xbm", ".xpm", ".txt"}))
 		project.files.insert(str, File<STR>());
 }
 
