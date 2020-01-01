@@ -5,6 +5,7 @@
 #include <vector>
 #include <variant>
 #include <cwchar>
+#include <exception>
 
 namespace eptg {
 namespace json {
@@ -47,7 +48,7 @@ void skip_separators(const CHR *& c)
     while (*c == ' ' || *c == '\t' || *c == '\n' || *c == '\r')
         c++;
     if (*c == 0)
-        throw;
+		throw std::runtime_error("bad json");
 }
 
 template<typename STR, typename CHR>
@@ -63,7 +64,7 @@ var<STR> read_var(const CHR *& c)
     else if ((*c >= 0 && *c <= 9) || *c == '-')
         return read_int(c);
     else
-        throw;
+		throw std::runtime_error("bad json");
 }
 
 template<typename STR, typename CHR>
@@ -71,11 +72,11 @@ STR read_string(const CHR *& c)
 {
     STR str;
     if (*c != '"')
-        throw;
+		throw std::runtime_error("bad json");
     for (c++ ; *c != '"' ; c++)
     {
         if (*c == 0)
-            throw;
+			throw std::runtime_error("bad json");
         str.append(*c);
     }
     c++; // skip last '"'
@@ -88,7 +89,7 @@ dict<STR> read_dict(const CHR *& c)
 {
     skip_separators(c);
     if (*c != '{')
-        throw;
+		throw std::runtime_error("bad json");
     dict<STR> result;
     c++;
     for (;;)
@@ -97,11 +98,11 @@ dict<STR> read_dict(const CHR *& c)
         if (*c == '}')
             break;
         if (*c != '"')
-            throw;
+			throw std::runtime_error("bad json");
         STR key = read_string<STR>(c);
         skip_separators(c);
         if (*c != ':')
-            throw;
+			throw std::runtime_error("bad json");
         c++; // skip ':'
         skip_separators(c);
         result.insert({key, read_var<STR>(c)});
@@ -118,7 +119,7 @@ array<STR> read_array(const CHR *& c)
 {
     skip_separators(c);
     if (*c != '[')
-        throw;
+		throw std::runtime_error("bad json");
     array<STR> result;
     c++;
     for (;;)

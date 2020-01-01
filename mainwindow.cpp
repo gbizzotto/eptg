@@ -18,6 +18,7 @@
 #include <QTimer>
 #include <QStringList>
 #include <QToolTip>
+#include <QMessageBox>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -215,8 +216,17 @@ void MainWindow::open(const QString & pathName)
 {
     save();
 
-	project.reset(new eptg::Project(pathName));
-	project->sweep();
+	try
+	{
+		auto new_project = std::make_unique<eptg::Project<QString>>(pathName, read_file(path::append(pathName, PROJECT_FILE_NAME)));
+		new_project->sweep();
+		project.swap(new_project);
+	}
+	catch (std::runtime_error & err)
+	{
+		QMessageBox::critical(this, "Load error", "Failed to load project at '" + pathName + "'");
+		return;
+	}
 
     adjust_ui_for_project();
 }
