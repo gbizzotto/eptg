@@ -353,6 +353,7 @@
     </widget>
     <addaction name="menuOpenFolder"/>
     <addaction name="menuOpenRecent"/>
+    <addaction name="menuClear_recents"/>
     <addaction name="separator"/>
     <addaction name="menuSave"/>
    </widget>
@@ -462,6 +463,11 @@
    </property>
    <property name="shortcut">
     <string>F2</string>
+   </property>
+  </action>
+  <action name="menuClear_recents">
+   <property name="text">
+    <string>Clear recents</string>
    </property>
   </action>
  </widget>

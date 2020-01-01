@@ -9,8 +9,8 @@
 
 #include "eptg/project.hpp"
 #include "eptg/copy_move_data.hpp"
-#include "ui_copy_move_wizard.h"
 
+#include "ui_copy_move_wizard.h"
 #include "mainwindow.h"
 
 QT_BEGIN_NAMESPACE

@@ -82,6 +82,8 @@ private slots:
 
 	void on_previewCheckBox_stateChanged(int arg1);
 
+	void on_menuClear_recents_triggered();
+
 private:
     std::unique_ptr<eptg::Project<QString>> project;
     Ui::MainWindow *ui;

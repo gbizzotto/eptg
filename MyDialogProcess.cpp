@@ -7,20 +7,27 @@
 #include <QToolTip>
 #include <QCursor>
 
-#include "ui_process.h"
 #include "MyDialogProcess.h"
 #include "eptg/project.hpp"
 #include "eptg/helpers.hpp"
-
 #include "mainwindow.h"
+#include "ui_mainwindow.h"
 
-MyDialogProcess::MyDialogProcess(const eptg::Project<QString> & project, const std::set<QString> & rel_paths, QWidget * parent)
+MyDialogProcess::MyDialogProcess(const eptg::Project<QString> & project, QWidget * parent)
     : QDialog(parent)
-    , project(project)
-    , rel_paths(rel_paths)
+	, project(project)
+	, main_window(static_cast<MainWindow*>(parent))
 {
     setupUi(this);
     go_on.store(false);
+
+	int selected_files_count = main_window->get_ui()->fillList->selectionModel()->selectedIndexes().count();
+	int shown_files_count = names_from_list(main_window->get_ui()->fillList).size();
+	this->selectedFilesRadio->setEnabled(selected_files_count != 0);
+	this->shownFilesRadio->setChecked(selected_files_count == 0);
+	this->selectedFilesRadio->setText(this->selectedFilesRadio->text() + " (" + QString::number(selected_files_count) + ")");
+	this->   shownFilesRadio->setText(this->   shownFilesRadio->text() + " (" + QString::number(shown_files_count   ) + ")");
+	this-> projectFilesRadio->setText(this-> projectFilesRadio->text() + " (" + QString::number(project.get_files().size()) + ")");
 }
 
 QStringList MyDialogProcess::get_commands() const
@@ -40,39 +47,53 @@ QStringList MyDialogProcess::get_commands() const
             positions.back().insert(positions.back().begin(), pos);
     }
 
-    for (const QString & rel_path : rel_paths)
-    {
-        if (QThread::currentThread()->isInterruptionRequested())
-            return QStringList();
+	auto make_command = [&](const QString & rel_path)
+		{
+			QFileInfo info(path::append(base_path, rel_path));
+			const QString full_path = path::append(base_path, rel_path);
 
-        QFileInfo info(path::append(base_path, rel_path));
-        const QString full_path = path::append(base_path, rel_path);
+			auto position_it = positions.begin();
+			for (auto command : base_commands)
+			{
+				for (int pos : *position_it)
+				{
+					if (pos+1 == command.size())
+						continue;
+					if (command[pos+1] == 'a')
+						command.replace(pos, 2, info.filePath());
+					else if (command[pos+1] == 'n')
+						command.replace(pos, 2, info.fileName());
+					else if (command[pos+1] == 'b')
+						command.replace(pos, 2, base_path);
+					else if (command[pos+1] == 'r')
+						command.replace(pos, 2, rel_path);
+					else if (command[pos+1] == 'f')
+						command.replace(pos, 2, QFileInfo(rel_path).path());
+				}
+				commands.append(command);
+				++position_it;
+			}
+		};
 
-        auto position_it = positions.begin();
-        for (auto command : base_commands)
-        {
-            if (QThread::currentThread()->isInterruptionRequested())
-                return QStringList();
+	if (selectedFilesRadio->isChecked())
+		for (const QString & rel_path : names_from_list(main_window->get_ui()->fillList->selectionModel()->selectedIndexes()))
+			if (QThread::currentThread()->isInterruptionRequested())
+				return QStringList();
+			else
+				make_command(rel_path);
+	else if (shownFilesRadio->isChecked())
+		for (const QString & rel_path : names_from_list(main_window->get_ui()->fillList))
+			if (QThread::currentThread()->isInterruptionRequested())
+				return QStringList();
+			else
+				make_command(rel_path);
+	else
+		for (const QString & rel_path : keys(project.get_files().collection))
+			if (QThread::currentThread()->isInterruptionRequested())
+				return QStringList();
+			else
+				make_command(rel_path);
 
-            for (int pos : *position_it)
-            {
-                if (pos+1 == command.size())
-                    continue;
-                if (command[pos+1] == 'a')
-                    command.replace(pos, 2, info.filePath());
-                else if (command[pos+1] == 'n')
-                    command.replace(pos, 2, info.fileName());
-                else if (command[pos+1] == 'b')
-                    command.replace(pos, 2, base_path);
-                else if (command[pos+1] == 'r')
-                    command.replace(pos, 2, rel_path);
-                else if (command[pos+1] == 'f')
-                    command.replace(pos, 2, QFileInfo(rel_path).path());
-            }
-            commands.append(command);
-            ++position_it;
-        }
-    }
     return commands;
 }
 

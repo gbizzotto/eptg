@@ -711,15 +711,7 @@ void MainWindow::show_similar_groups(const std::vector<std::vector<QString>> & g
 
 void MainWindow::on_menuProcess_triggered()
 {
-    auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
-    if (selected_items.size() == 0)
-    {
-        QToolTip::showText(QCursor::pos(), "No file selected.", nullptr, QRect(), 2000);
-        return;
-    }
-    std::set<QString> selected_names = names_from_list(selected_items);
-
-    std::make_unique<MyDialogProcess>(*this->project, selected_names, this)->exec();
+	std::make_unique<MyDialogProcess>(*this->project, this)->exec();
 }
 
 void MainWindow::on_menuCopyFiles_triggered()
@@ -801,3 +793,13 @@ void MainWindow::on_previewCheckBox_stateChanged(int)
 	this->preview_pictures(selected_names);
 }
 
+
+void MainWindow::on_menuClear_recents_triggered()
+{
+	ui->menuOpenRecent->clear();
+
+	QSettings settings("ttt", "eptg");
+
+	settings.beginWriteArray("recents");
+	settings.endArray();
+}

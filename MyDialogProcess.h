@@ -10,6 +10,7 @@
 #include "eptg/project.hpp"
 
 #include "ui_process.h"
+#include "mainwindow.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Process; }
@@ -20,14 +21,14 @@ class MyDialogProcess : public QDialog, public Ui::Process
     Q_OBJECT
 
 private:
-    const eptg::Project<QString> & project;
-    std::set<QString> rel_paths;
-    std::atomic_bool go_on;
+	const eptg::Project<QString> & project;
+	MainWindow * main_window;
+	std::atomic_bool go_on;
 
     QStringList get_commands() const;
 
 public:
-    MyDialogProcess(const eptg::Project<QString> & project, const std::set<QString> & rel_paths, QWidget * parent);
+	MyDialogProcess(const eptg::Project<QString> & project, QWidget * parent);
 private slots:
     void on_buttonBox_clicked(QAbstractButton *button);
     void on_plainTextEdit_textChanged();
