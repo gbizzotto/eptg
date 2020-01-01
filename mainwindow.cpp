@@ -237,15 +237,15 @@ void MainWindow::open(const QString & pathName)
 
 void MainWindow::add_open_recent(const QString & pathName)
 {
+	// remove duplicates
+	for(int i = ui->menuOpenRecent->actions().size() - 1 ; i >= 0 ; i--)
+		if (path::are_same(pathName, ui->menuOpenRecent->actions()[i]->text()))
+			ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[i]);
     // set recent menu
     if (ui->menuOpenRecent->actions().size() == 0)
         ui->menuOpenRecent->addAction(pathName);
     else
-    {
-        // remove duplicates
-        for(int i = ui->menuOpenRecent->actions().size() - 1 ; i >= 0 ; i--)
-            if (path::are_same(pathName, ui->menuOpenRecent->actions()[i]->text()))
-                ui->menuOpenRecent->removeAction(ui->menuOpenRecent->actions()[i]);
+	{
         // insert
         QAction * qaction = new QAction(pathName);
         qaction->setData(pathName);
