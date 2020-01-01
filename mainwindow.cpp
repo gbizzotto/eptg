@@ -1,6 +1,7 @@
 #include <thread>
 #include <atomic>
 #include <cmath>
+#include <memory>
 
 #include <QFileDialog>
 #include <QKeyEvent>
@@ -95,7 +96,10 @@ void MainWindow::save(bool force)
     save_current_file_tags();
     save_current_tag_tags();
 	if (project)
-		project->save(force);
+	{
+		if ( ! project->save(force))
+			QMessageBox::critical(this, "Save error", "Project was not written to disk");
+	}
 }
 
 void MainWindow::on_menuOpenRecent(QAction *action)
@@ -409,7 +413,13 @@ void MainWindow::on_searchEdit_returnPressed()
 
     ui->fillList->clear();
 
-    std::vector<QString> rel_paths = project->search(SearchNode(ui->searchEdit->text()));
+	std::vector<QString> rel_paths;
+	try {
+		rel_paths = project->search(SearchNode(ui->searchEdit->text()));
+	} catch (std::runtime_error & err) {
+		QToolTip::showText(ui->searchEdit->mapToGlobal(QPoint(0, 0)), err.what(), nullptr, QRect(), 3000);
+	}
+
     for (const auto & rel_path : rel_paths)
 		ui->fillList->addItem(rel_path);
 

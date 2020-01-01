@@ -81,6 +81,16 @@ std::string to<std::string>(const QString & str)
 {
     return str.toStdString();
 }
+template<>
+std::wstring to<std::wstring>(const std::string & str)
+{
+	return std::wstring(str.begin(), str.end());
+}
+template<>
+std::wstring to<std::wstring>(const QString & str)
+{
+	return str.toStdWString();
+}
 
 std::set<QString> unique_tokens(const QString & str)
 {

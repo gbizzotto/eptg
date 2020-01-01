@@ -40,6 +40,20 @@ struct taggable
     {
         return std::find_if(tags.begin(), tags.end(), [this](const STR & t){ return in(inherited_tags, t); }) != tags.end();
     }
+
+	size_t size() const
+	{
+		return inherited_tags.size();
+	}
+
+	bool operator==(const taggable & other) const
+	{
+		return inherited_tags == other.inherited_tags;
+	}
+	bool operator!=(const taggable & other) const
+	{
+		return inherited_tags != other.inherited_tags;
+	}
 };
 
 template<typename T> using File = taggable<T>;
@@ -55,6 +69,33 @@ struct taggable_collection
     {
         return std::count_if(collection.begin(), collection.end(), [](const auto & p) { return p.second.inherited_tags.size() > 0; });
     }
+
+	bool operator==(const taggable_collection & other) const
+	{
+		if (collection == other.collection)
+			return true;
+		for (const auto & [str,t] : collection)
+		{
+			if (t.size() == 0)
+				continue;
+			auto it = other.collection.find(str);
+			if (it == other.collection.end() || t != it->second)
+				return false;
+		}
+		for (const auto & [str,t] : other.collection)
+		{
+			if (t.size() == 0)
+				continue;
+			auto it = collection.find(str);
+			if (it == collection.end() || t != it->second)
+				return false;
+		}
+		return true;
+	}
+	bool operator!=(const taggable_collection & other) const
+	{
+		return ! (*this == other);
+	}
 
     const T * find(const STR & id) const
     {
@@ -98,24 +139,15 @@ private:
     STR path;
     taggable_collection<STR,File<STR>> files;
     taggable_collection<STR,Tag <STR>> tags ;
-	bool needs_saving;
+	bool needs_saving = false;
 
 public:
-    inline Project(const STR & full_path)
-        : path(full_path)
-		, needs_saving(false)
-	{
-		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME))))
-			return;
-		std::wstring json_string;
-		{
-			std::wifstream in(eptg::str::to<std::string>(path::append(full_path, PROJECT_FILE_NAME)), std::wifstream::binary);
-			in.imbue(std::locale(std::locale::classic(), new std::codecvt_utf8<wchar_t>));
-			std::wstringstream buffer;
-			buffer << in.rdbuf();
-			json_string = buffer.str();
-		}
+	explicit inline Project()
+	{}
 
+	Project(const STR & path, const std::wstring & json_string)
+		: path(path)
+	{
 		const wchar_t * c = json_string.c_str();
 		eptg::json::dict<STR> dict = eptg::json::read_dict<STR>(c);
 		if ( ! in(dict, "files") || ! std::holds_alternative<eptg::json::dict<STR>>(dict["files"]))
@@ -124,8 +156,6 @@ public:
 			return;
 		for(const auto & [rel_path,file_var] : std::get<eptg::json::dict<STR>>(dict["files"]))
 		{
-			if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, rel_path)))) // prune deleted files
-				continue;
 			if ( ! std::holds_alternative<json::dict<STR>>(file_var))
 				continue;
 			json::dict<STR> file_dict = std::get<json::dict<STR>>(file_var);
@@ -161,6 +191,18 @@ public:
 					tag.insert_tag(subtagname);
 			}
 		}
+	}
+
+	bool operator==(const Project & other) const
+	{
+		bool a = files == other.files;
+		bool b = tags  == other.tags;
+		return a
+			&& b;
+	}
+	bool operator!=(const Project & other) const
+	{
+		return ! (*this == other);
 	}
 
 	const STR & get_path() const { return path; }
@@ -388,7 +430,7 @@ public:
     // returns whether a new project has been created in destination folder.
 	Project execute(const eptg::CopyMoveData<STR> & copy_move_data)
 	{
-		Project dest_project(copy_move_data.dest);
+		Project dest_project(copy_move_data.dest, read_file(path::append(copy_move_data.dest, PROJECT_FILE_NAME)));
         std::set<STR> tags_used;
 
         bool is_internal = path::is_sub(path, copy_move_data.dest);
@@ -489,6 +531,10 @@ public:
 
 	void sweep()
 	{
+		// prune deleted files
+		for (const STR & rel_path : keys(files.collection))
+			if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, rel_path))))
+				files.erase(rel_path);
 		// sweep directory
 		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path)))
 			return;
@@ -496,15 +542,16 @@ public:
 			files.insert(str, File<STR>());
 	}
 
-	void save(bool force = false)
+	bool save(bool force = false)
 	{
-		const_cast<const Project*>(this)->save(force);
+		bool saved = const_cast<const Project*>(this)->save(force);
 		needs_saving = false;
+		return saved;
 	}
-	void save(bool force = false) const
+	bool save(bool force = false) const
 	{
 		if ( ! get_needs_saving() && ! force)
-			return;
+			return true;
 
 		eptg::json::dict<STR> files_dict;
 		for (const auto & [id,file] : this->files.collection)
@@ -538,12 +585,19 @@ public:
 		document["files"] = files_dict;
 		document["tags" ] = tags_dict ;
 
-		auto str = eptg::json::to_str(document, 0);
+		STR str = eptg::json::to_str(document, 0);
+
+		Project new_project("", eptg::str::to<std::wstring>(str));
+		if (new_project != *this)
+			return false;
+
 		std::string json_str = eptg::str::to<std::string>(str);
 		std::ofstream out(eptg::str::to<std::string>(path::append(path, PROJECT_FILE_NAME)));
 		out.write(json_str.c_str(), json_str.size());
 		out.flush();
 		out.close();
+
+		return true;
 	}
 };
 

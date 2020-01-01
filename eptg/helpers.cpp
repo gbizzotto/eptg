@@ -10,7 +10,6 @@
 #include "eptg/helpers.hpp"
 #include "eptg/constants.hpp"
 
-
 int get_column(const QTableWidgetItem *item) { return item->column(); }
 int get_column(const QModelIndex      &item) { return item .column(); }
 QVariant get_data(const QTableWidgetItem *item) { return item->data(Qt::DisplayRole); }
@@ -99,3 +98,4 @@ QPixmap make_preview(const QString & base_path, const std::set<QString> & select
 		}
 	return image_result;
 }
+

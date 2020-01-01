@@ -37,6 +37,8 @@ template<>     QString to<    QString>(const std::string & str);
 template<>     QString to<    QString>(const     QString & str);
 template<> std::string to<std::string>(const std::string & str);
 template<> std::string to<std::string>(const     QString & str);
+template<> std::wstring to<std::wstring>(const std::string & str);
+template<> std::wstring to<std::wstring>(const     QString & str);
 
 
 }} // namespaces

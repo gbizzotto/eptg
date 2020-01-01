@@ -7,6 +7,7 @@
 #include <string>
 #include <functional>
 #include <type_traits>
+#include <fstream>
 
 #include <QImage>
 #include <QTableWidgetItem>
@@ -214,6 +215,19 @@ std::vector<std::vector<STR>> get_similar(const STR & base_path, const C & rel_p
         }
     }
     return result;
+}
+
+template<typename STR>
+std::wstring read_file(const STR & full_path)
+{
+	if ( ! eptg::fs::exists(eptg::str::to<std::string>(full_path)))
+		return std::wstring();
+	std::wifstream fin(eptg::str::to<std::string>(full_path), std::wifstream::binary);
+	fin.imbue(std::locale(std::locale::classic(), new std::codecvt_utf8<wchar_t>));
+	std::wstringstream buffer;
+	buffer << fin.rdbuf();
+	std::wstring json_string = buffer.str();
+	return json_string;
 }
 
 

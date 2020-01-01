@@ -61,7 +61,7 @@ struct SearchNode
                     }
                 }
                 if (open_par_count != 0)
-                    throw; // didn't find the closing parenthesis
+					throw std::runtime_error("syntax error"); // didn't find the closing parenthesis
             }
             else
                 no_parenthesis_tokens.push_back(*it);
@@ -81,7 +81,7 @@ struct SearchNode
             {
                 auto it2 = ++it;
                 if (it2 == end)
-                    throw;
+					throw std::runtime_error("syntax error");
                 no_not_tokens.push_back(SearchNode(SearchNode::Type::NOT, {*it2}));
             }
             else if (token[0] == '!')
@@ -114,7 +114,7 @@ struct SearchNode
             if (std::get<STR>(*it) == "or")
             {
                 if (and_clauses.empty())
-                    throw; // starts with and OR or has OR OR
+					throw std::runtime_error("syntax error"); // starts with and OR or has OR OR
                 this->type = SearchNode::Type::OR;
                 if (and_clauses.size() == 1)
                     this->subnodes.emplace_back(std::move(and_clauses[0]));
@@ -124,7 +124,7 @@ struct SearchNode
             }
         }
         if (and_clauses.empty())
-            throw; // starts with and OR or has OR OR
+			throw std::runtime_error("syntax error"); // starts with and OR or has OR OR
 
         if (this->type == SearchNode::Type::OR)
             this->subnodes.emplace_back(SearchNode(SearchNode::Type::AND, std::move(and_clauses)));
