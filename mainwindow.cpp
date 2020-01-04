@@ -70,9 +70,9 @@ MainWindow::MainWindow(QWidget *parent)
     }
     settings.endArray();
 
-    std::unique_ptr<QTimer> timer(new QTimer(this));
-    connect(timer.get(), SIGNAL(timeout()), this, SLOT(save()));
-    timer->start(10000); //time specified in ms
+	autosave_timer.reset(new QTimer(this));
+	connect(autosave_timer.get(), SIGNAL(timeout()), this, SLOT(save()));
+	autosave_timer->start(10000); //time specified in ms
 
     connect(ui->menuOpenRecent, SIGNAL(triggered(QAction*)), this, SLOT(on_menuOpenRecent(QAction*)));
 }

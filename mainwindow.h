@@ -91,5 +91,6 @@ private:
     QLabel *statusPercentTaggedLabel;
     QLabel *statusSizeLabel;
     std::map<QString,int> known_tags;
+	std::unique_ptr<QTimer> autosave_timer;
 };
 #endif // MAINWINDOW_H
