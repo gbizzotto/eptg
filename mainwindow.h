@@ -26,6 +26,8 @@ public:
     void save_current_file_tags();
     void open(const QString & pathName);
     void add_open_recent(const QString & pathName);
+	void select_next_file();
+	void select_next_tag();
 protected:
     void showEvent(QShowEvent *ev) override;
     void closeEvent(QCloseEvent *event) override;

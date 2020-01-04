@@ -125,14 +125,22 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
         if (event->type() == QEvent::KeyPress)
         {
             QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-            if (keyEvent->key() == Qt::Key_Escape)
+			if (  keyEvent->key() == Qt::Key_Up     || keyEvent->key() == Qt::Key_Down
+			   || keyEvent->key() == Qt::Key_PageUp || keyEvent->key() == Qt::Key_PageDown )
+			{
+				save_current_file_tags();
+				QCoreApplication::postEvent(ui->fillList, new QKeyEvent(*keyEvent));
+				QCoreApplication::postEvent(ui->fillList, new QKeyEvent(QEvent::KeyPress, Qt::Key_F2, Qt::KeyboardModifier::NoModifier));
+				return true;
+			}
+			else if (keyEvent->key() == Qt::Key_Escape)
             {
                 ui->pathEdit->setSelection(0,0);
                 ui->tagsEdit->setFocus();
                 return true;
             }
         }
-    }
+	}
     else if (obj == ui->tagsEdit || obj == ui->editTagTags || obj == ui->searchEdit)
     {
         QLineEdit *edit = static_cast<QLineEdit*>(obj);
@@ -379,18 +387,34 @@ void MainWindow::save_current_file_tags()
         });
 }
 
+void MainWindow::select_next_tag()
+{
+	auto selected_items = ui->tagList->selectedItems();
+	// get highest selected index
+	int idx = 0;
+	for (const auto & sel : selected_items)
+		if (sel->row() > idx)
+			idx = sel->row();
+	if (idx+1 < ui->tagList->rowCount())
+		ui->tagList->selectRow(idx+1);
+}
+
+void MainWindow::select_next_file()
+{
+	// get highest selected index
+	auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
+	int idx = 0;
+	for (const auto & sel : selected_items)
+		if (sel.row() > idx)
+			idx = sel.row();
+	idx = (idx+1) % ui->fillList->model()->rowCount();
+	ui->fillList->setCurrentIndex(ui->fillList->model()->index(idx, 0));
+}
+
 void MainWindow::on_tagsEdit_returnPressed()
 {
-    save_current_file_tags();
-
-    auto selected_items = ui->fillList->selectionModel()->selectedIndexes();
-    // get highest selected index
-    int idx = 0;
-    for (const auto & sel : selected_items)
-        if (sel.row() > idx)
-            idx = sel.row();
-    idx = (idx+1) % ui->fillList->model()->rowCount();
-    ui->fillList->setCurrentIndex(ui->fillList->model()->index(idx, 0));
+	save_current_file_tags();
+	select_next_file();
 
 	if (project->get_files().size() == 0)
         statusPercentTaggedLabel->setText("");
@@ -476,15 +500,7 @@ void MainWindow::save_current_tag_tags()
 void MainWindow::on_editTagTags_returnPressed()
 {
     save_current_tag_tags();
-
-    auto selected_items = ui->tagList->selectedItems();
-    // get highest selected index
-    int idx = 0;
-    for (const auto & sel : selected_items)
-        if (sel->row() > idx)
-            idx = sel->row();
-    if (idx+1 < ui->tagList->rowCount())
-        ui->tagList->selectRow(idx+1);
+	select_next_tag();
 
     refresh_tag_list();
 }
@@ -784,6 +800,8 @@ void MainWindow::on_pathEdit_editingFinished()
 
     // restore selected item
     ui->fillList->selectedItems().front()->setData(Qt::EditRole, ui->pathEdit->text());
+
+	select_next_file();
 }
 
 void MainWindow::on_previewCheckBox_stateChanged(int)

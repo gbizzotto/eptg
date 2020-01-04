@@ -148,6 +148,8 @@ public:
 	Project(const STR & path, const std::wstring & json_string)
 		: path(path)
 	{
+		if (json_string.size() == 0)
+			return;
 		const wchar_t * c = json_string.c_str();
 		eptg::json::dict<STR> dict = eptg::json::read_dict<STR>(c);
 		if ( ! in(dict, "files") || ! std::holds_alternative<eptg::json::dict<STR>>(dict["files"]))
