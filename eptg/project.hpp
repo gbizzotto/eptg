@@ -10,6 +10,7 @@
 #include <variant>
 #include <fstream>
 #include <locale>
+#include <experimental/map>
 
 #include "eptg/search.hpp"
 #include "eptg/helpers.hpp"
@@ -534,9 +535,7 @@ public:
 	void sweep()
 	{
 		// prune deleted files
-		for (const STR & rel_path : keys(files.collection))
-			if ( ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, rel_path))))
-				files.erase(rel_path);
+		std::experimental::erase_if(files.collection, [this](const auto & p){ return ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, p.first))); });
 		// sweep directory
 		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path)))
 			return;
