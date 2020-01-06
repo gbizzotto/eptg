@@ -233,6 +233,7 @@ std::wstring read_file(const STR & full_path)
 	return json_string;
 }
 
+namespace eptg{
 template <class K, class T, class C, class A, class Predicate>
 void erase_if(std::map<K, T, C, A>& c, Predicate pred) {
     for (auto i = c.begin(), last = c.end(); i != last; )
@@ -241,5 +242,6 @@ void erase_if(std::map<K, T, C, A>& c, Predicate pred) {
         else
             ++i;
 }
+} // namespace
 
 #endif // HELPERS_HPP
