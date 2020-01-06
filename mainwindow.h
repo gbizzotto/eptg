@@ -46,7 +46,7 @@ private slots:
 
     void on_tagsEdit_returnPressed();
 
-    bool eventFilter(QObject* obj, QEvent *event);
+    bool eventFilter(QObject* obj, QEvent *event) override;
 
     void on_searchEdit_returnPressed();
 

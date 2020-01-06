@@ -535,7 +535,8 @@ public:
 	void sweep()
 	{
 		// prune deleted files
-		std::experimental::erase_if(files.collection, [this](const auto & p){ return ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, p.first))); });
+        using namespace std::experimental;
+        erase_if(files.collection, [this](const auto & p){ return ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, p.first))); });
 		// sweep directory
 		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path)))
 			return;

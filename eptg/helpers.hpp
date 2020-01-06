@@ -8,6 +8,9 @@
 #include <functional>
 #include <type_traits>
 #include <fstream>
+#include <codecvt>
+#include <sstream>
+#include <iostream>
 
 #include <QImage>
 #include <QTableWidgetItem>
@@ -230,5 +233,13 @@ std::wstring read_file(const STR & full_path)
 	return json_string;
 }
 
+template <class K, class T, class C, class A, class Predicate>
+void erase_if(std::map<K, T, C, A>& c, Predicate pred) {
+    for (auto i = c.begin(), last = c.end(); i != last; )
+        if (pred(*i))
+            i = c.erase(i);
+        else
+            ++i;
+}
 
 #endif // HELPERS_HPP

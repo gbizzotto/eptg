@@ -6,6 +6,7 @@
 #include <variant>
 #include <cwchar>
 #include <exception>
+#include <string>
 
 namespace eptg {
 namespace json {

@@ -639,12 +639,12 @@ bool MainWindow::open_containing_folder(const QStringList & paths) const
     args << "-e";
     args << "activate";
     args << "-e";
-    args << "select POSIX file \"" + path + "\"";
+    args << "select POSIX file \"" + paths[0] + "\"";
     args << "-e";
     args << "end tell";
     args << "-e";
     args << "return";
-    success = QProcess::execute("/usr/bin/osascript", args)
+    success = QProcess::execute("/usr/bin/osascript", args);
 #elif defined(Q_OS_LINUX)
     QProcess browserProc;
     success = QProcess::startDetached(QString("nemo"), paths, QString("."));
