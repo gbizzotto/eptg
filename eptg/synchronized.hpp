@@ -1,0 +1,4 @@
+#ifndef SYNCHRONIZED_HPP
+#define SYNCHRONIZED_HPP
+
+#endif // SYNCHRONIZED_HPP

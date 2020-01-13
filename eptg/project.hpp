@@ -410,12 +410,13 @@ public:
             {
                 for (const STR & t : added_tags)
                 {
+					tags.insert(t, eptg::Tag<STR>{});
                     if (ISTAG)
                     {
                         // let's check that the tag added does not already inherit (is tagged with) the selected tag
                         // if so, it would create circular inheritance, which does not make sense
                         // e.g.: if TZM is a ACTIVISM. Can't make ACTIVISM a TZM.
-                        eptg::Tag<STR> * candidate = tags.find(t);
+						eptg::Tag<STR> * candidate = tags.find(t);
                         if (  taggable_name == t // self-tagging
                            || (candidate != nullptr && inherits(*candidate, {taggable_name}))
                            )
