@@ -49,6 +49,7 @@ HEADERS += \
     eptg/project.hpp \
     eptg/search.hpp \
     eptg/string.hpp \
+    eptg/synchronized.hpp \
     mainwindow.h \
 
 FORMS += \

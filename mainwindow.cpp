@@ -71,7 +71,7 @@ MainWindow::MainWindow(QWidget *parent)
     settings.endArray();
 
 	autosave_timer.reset(new QTimer(this));
-	connect(autosave_timer.get(), SIGNAL(timeout()), this, SLOT(save()));
+	connect(autosave_timer.get(), SIGNAL(timeout()), this, SLOT(save(false, false)));
 	autosave_timer->start(10000); //time specified in ms
 
     connect(ui->menuOpenRecent, SIGNAL(triggered(QAction*)), this, SLOT(on_menuOpenRecent(QAction*)));
@@ -91,10 +91,14 @@ void MainWindow::closeEvent(QCloseEvent *)
     save();
 }
 
-void MainWindow::save(bool force)
+void MainWindow::save(bool force, bool save_typed)
 {
-    save_current_file_tags();
-    save_current_tag_tags();
+	if (save_typed)
+	{
+		save_current_file_tags();
+		save_current_tag_tags();
+	}
+	auto & project = *project_s.GetSynchronizedProxy();
 	if (project)
 	{
 		if ( ! project->save(force))
@@ -232,6 +236,7 @@ void MainWindow::open(const QString & pathName)
 	{
 		auto new_project = std::make_unique<eptg::Project<QString>>(pathName, read_file(path::append(pathName, PROJECT_FILE_NAME)));
 		new_project->sweep();
+		auto & project = *project_s.GetSynchronizedProxy();
 		project.swap(new_project);
 	}
 	catch (std::runtime_error & err)
@@ -276,6 +281,7 @@ void MainWindow::add_open_recent(const QString & pathName)
 
 void MainWindow::adjust_ui_for_project()
 {
+	auto & project = *project_s.GetSynchronizedProxy();
 	this->add_open_recent(project->get_path());
 
     ui->fillList->clear();
@@ -361,6 +367,7 @@ void MainWindow::refresh_tag_list()
 
 void MainWindow::save_current_file_tags()
 {
+	auto & project = *project_s.GetSynchronizedProxy();
     if ( ! project)
         return;
 
@@ -416,6 +423,7 @@ void MainWindow::on_tagsEdit_returnPressed()
 	save_current_file_tags();
 	select_next_file();
 
+	auto & project = *project_s.GetSynchronizedProxy();
 	if (project->get_files().size() == 0)
         statusPercentTaggedLabel->setText("");
     else
@@ -432,6 +440,7 @@ void MainWindow::on_tagsEdit_returnPressed()
 
 void MainWindow::on_searchEdit_returnPressed()
 {
+	auto & project = *project_s.GetSynchronizedProxy();
     if ( ! project)
         return;
 
@@ -458,6 +467,7 @@ void MainWindow::on_searchEdit_returnPressed()
 
 void MainWindow::save_current_tag_tags()
 {
+	auto & project = *project_s.GetSynchronizedProxy();
     if ( ! project)
         return;
 
@@ -515,6 +525,8 @@ void MainWindow::on_tagList_itemSelectionChanged()
         return;
     }
 
+	auto & project = *project_s.GetSynchronizedProxy();
+
     // prepare preview
     QStringList hierarchy;
 
@@ -543,6 +555,8 @@ void MainWindow::on_tagList_itemSelectionChanged()
 
 void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 {
+	auto & project = *project_s.GetSynchronizedProxy();
+
     if (selected_items_text.size() == 0)
 	{
         ui->fillPreview->setPixmap(QPixmap());
@@ -608,6 +622,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
 	this->preview_pictures(selected_names);
 
     // set tag line into edit
+	auto & project = *project_s.GetSynchronizedProxy();
 	std::set<const eptg::taggable<QString>*> selected_files = project->get_files().get_all_by_name(selected_names);
     QStringList common_tags = accumulate(project->get_common_tags(selected_files), QStringList());
     ui->tagsEdit->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
@@ -670,12 +685,14 @@ void MainWindow::on_menuOpenContainingFolder_triggered()
 //    for (const QString & rel_path : titles)
 //        qpaths.append(path::append(project->get_path(), rel_path));
 
+	auto & project = *project_s.GetSynchronizedProxy();
 	if (!open_containing_folder(QStringList(path::append(project->get_path(), *selected_names.begin()))))
         QToolTip::showText(QCursor::pos(), "Can't open file browser.", nullptr, QRect(), 2000);
 }
 
 void MainWindow::on_fillList_doubleClicked(const QModelIndex &index)
 {
+	auto & project = *project_s.GetSynchronizedProxy();
 	QString path = path::append(project->get_path(), ui->fillList->item(index.row())->text());
 
     if (!open_containing_folder(QStringList(path)))
@@ -695,8 +712,9 @@ void MainWindow::on_actionGoto_first_untagged_triggered()
 
 void MainWindow::go_to_first_untagged()
 {
+	auto & project = *project_s.GetSynchronizedProxy();
     for (int i=0 ; i<ui->fillList->count() ; i++)
-    {
+	{
 		const eptg::File<QString> * f = project->get_files().find(ui->fillList->item(i)->data(Qt::DisplayRole).toString());
         if (f == nullptr || f->inherited_tags.size() == 0)
         {
@@ -709,7 +727,8 @@ void MainWindow::go_to_first_untagged()
 
 void MainWindow::on_menuFindSimilar_triggered()
 {
-    std::make_unique<MyDialogFindSimilar>(*this->project, this)->exec();
+	auto & project = *project_s.GetSynchronizedProxy();
+	std::make_unique<MyDialogFindSimilar>(*project, this)->exec();
 }
 
 void MainWindow::show_similar_groups(const std::vector<std::vector<QString>> & groups)
@@ -727,14 +746,17 @@ void MainWindow::show_similar_groups(const std::vector<std::vector<QString>> & g
 
 void MainWindow::on_menuProcess_triggered()
 {
-	std::make_unique<MyDialogProcess>(*this->project, this)->exec();
+	auto & project = *project_s.GetSynchronizedProxy();
+	std::make_unique<MyDialogProcess>(*project, this)->exec();
 }
 
 void MainWindow::on_menuCopyFiles_triggered()
 {
+	auto & project = *project_s.GetSynchronizedProxy();
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, false));
     if (copy_move_wizard->exec())
     {
+		auto & project = *project_s.GetSynchronizedProxy();
 		if ( ! path::is_sub(project->get_path(), copy_move_wizard->preview->dest))
             this->add_open_recent(copy_move_wizard->preview->dest);
         else
@@ -744,9 +766,11 @@ void MainWindow::on_menuCopyFiles_triggered()
 
 void MainWindow::on_menuMoveFiles_triggered()
 {
+	auto & project = *project_s.GetSynchronizedProxy();
     std::unique_ptr<MyWizardCopyMove> copy_move_wizard(new MyWizardCopyMove(*project, this, true));
     if (copy_move_wizard->exec())
-    {
+	{
+		auto & project = *project_s.GetSynchronizedProxy();
 		if ( ! path::is_sub(project->get_path(), copy_move_wizard->preview->dest))
             this->add_open_recent(copy_move_wizard->preview->dest);
         adjust_ui_for_project();
@@ -778,9 +802,10 @@ void MainWindow::on_menuRename_triggered()
 void MainWindow::on_pathEdit_editingFinished()
 {
     std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
-    if (selected_names.size() != 1)
-        return;
+	if (selected_names.size() != 1)
+		return;
 
+	auto & project = *project_s.GetSynchronizedProxy();
     auto status = project->rename(*selected_names.begin(), ui->pathEdit->text());
     if (status == decltype(status)::DifferentFolders)
     {

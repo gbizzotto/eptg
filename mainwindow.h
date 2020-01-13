@@ -8,6 +8,7 @@
 #include <QDialog>
 #include <memory>
 #include "eptg/project.hpp"
+#include "eptg/synchronized.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -38,7 +39,7 @@ private slots:
     void go_to_first_untagged();
     void preview_pictures(const std::set<QString> & selected_items_text);
     void adjust_ui_for_project();
-	void save(bool force = false);
+	void save(bool force = false, bool save_typed = true);
 
     void on_menuOpenRecent(QAction *action);
 
@@ -87,7 +88,7 @@ private slots:
 	void on_menuClear_recents_triggered();
 
 private:
-    std::unique_ptr<eptg::Project<QString>> project;
+	eptg::synchronized<std::unique_ptr<eptg::Project<QString>>> project_s;
     Ui::MainWindow *ui;
     QLabel *statusCountLabel;
     QLabel *statusPercentTaggedLabel;
