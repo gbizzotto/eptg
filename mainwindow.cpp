@@ -20,6 +20,7 @@
 #include <QStringList>
 #include <QToolTip>
 #include <QMessageBox>
+#include <QProcess>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -392,6 +393,11 @@ void MainWindow::save_current_file_tags()
                     it->second += increment;
             }
         });
+	
+	int rotation = 90 * (rotated % 4);
+	if (rotation)
+	{
+	}
 }
 
 void MainWindow::select_next_tag()
@@ -852,3 +858,64 @@ void MainWindow::on_fillList_currentItemChanged(QListWidgetItem *current, QListW
 
 }
 
+void MainWindow::rotate()
+{
+	auto project = project_s.GetSynchronizedProxy();
+	auto & p = *project->get();
+	auto selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
+
+	// 0, 90, 180, 270 degrees
+	// [0,1] - 6 - 3 - 8
+	// 2 - 7 - 4 - 5
+
+	int next_value[] = {6, 6, 7, 8, 5, 2, 3, 4, 1};
+
+	for (const QString & rel_path : selected_names)
+	{
+		QString full_path = path::append(p.get_path(), rel_path);
+		QStringList args{"-Orientation", "-n", full_path};
+		QProcess process;
+		process.start("exiftool", args);
+		process.waitForFinished(); // sets current thread to sleep and waits for process end
+		QString output(process.readAllStandardOutput());
+		QStringList tokens = output.split(":");
+		if (tokens.size() < 2)
+			continue;
+		int current_value = tokens[1].toInt();
+		if (current_value > 8)
+			current_value = 1;
+		args = QStringList{"-Orientation="+QString::number(next_value[current_value]), "-n", full_path};
+		process.start("exiftool", args);
+		process.waitForFinished();
+		QString output2(process.readAllStandardOutput());
+		int a = 1;
+	}
+
+
+//	int i = 0;
+//	for (const QString & rel_path : selected_names)
+//	{
+//		QString full_path = path::append((*project_s.GetSynchronizedProxy())->get_path(), rel_path);
+//		QImage img(full_path);
+//		QTransform rm;
+//		rm.rotate(90);
+//		img = img.transformed(rm);
+//		img.save("/tmp/ok_" + QString::number(i) + ".jpg");
+
+//		i++;
+//	}
+
+	this->preview_pictures(selected_names);
+
+//	QPixmap pixmap(*ui->fillPreview->pixmap());
+//	QTransform rm;
+//	rm.rotate(90);
+//	pixmap = pixmap.transformed(rm);
+//	ui->fillPreview->setPixmap(pixmap);
+//	this->rotated++;
+}
+
+void MainWindow::on_menuRotate_triggered()
+{
+	rotate();
+}

@@ -10,6 +10,12 @@
     <height>743</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="windowTitle">
    <string>eptgQt</string>
   </property>
@@ -378,6 +384,7 @@
     <addaction name="menuOpenContainingFolder"/>
     <addaction name="actionGoto_first_untagged"/>
     <addaction name="separator"/>
+    <addaction name="menuRotate"/>
     <addaction name="menuRename"/>
     <addaction name="menuCopyFiles"/>
     <addaction name="menuMoveFiles"/>
@@ -468,6 +475,14 @@
   <action name="menuClear_recents">
    <property name="text">
     <string>Clear recents</string>
+   </property>
+  </action>
+  <action name="menuRotate">
+   <property name="text">
+    <string>Rotate 90°</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
    </property>
   </action>
  </widget>
