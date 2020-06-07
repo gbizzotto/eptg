@@ -29,6 +29,7 @@ public:
     void add_open_recent(const QString & pathName);
 	void select_next_file();
 	void select_next_tag();
+	void rotate();
 protected:
     void showEvent(QShowEvent *ev) override;
     void closeEvent(QCloseEvent *event) override;
@@ -87,6 +88,8 @@ private slots:
 
 	void on_menuClear_recents_triggered();
 
+	void on_menuRotate_triggered();
+
 private:
 	eptg::synchronized<std::unique_ptr<eptg::Project<QString>>> project_s;
     Ui::MainWindow *ui;
@@ -95,5 +98,6 @@ private:
     QLabel *statusSizeLabel;
     std::map<QString,int> known_tags;
 	std::unique_ptr<QTimer> autosave_timer;
+	int rotated = 0;
 };
 #endif // MAINWINDOW_H
