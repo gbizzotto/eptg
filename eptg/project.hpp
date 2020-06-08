@@ -65,6 +65,10 @@ struct File : taggable<STR>
 	File(const QString & hash)
 		:hash(hash)
 	{}
+	File(const File & other)
+		:taggable<STR>(other)
+		,hash(other.hash)
+	{}
 };
 template<typename T> using Tag  = taggable<T>;
 
@@ -202,7 +206,7 @@ public:
 			if ( ! std::holds_alternative<json::dict<STR>>(file_var))
 				continue;
 			json::dict<STR> file_dict = std::get<json::dict<STR>>(file_var);
-			STR hash_buffer = checksum_4k(path::append(path, rel_path));dict
+			STR hash_buffer = checksum_4k(path::append(path, rel_path));
 			if (hash_buffer.length() == 0 && in(file_dict, "hash"))
 				hash_buffer = std::get<STR>(file_dict["hash"]);
 			File<STR> & file = files.insert(rel_path, File<STR>(hash_buffer));
@@ -276,7 +280,7 @@ public:
 		for (const auto & [rel_path,file] : sub_project.get_files().collection)
         {
             const STR new_rel_path = path::append(sub_project_rel_path, rel_path);
-			files.insert(new_rel_path, eptg::File<STR>(file.hash));
+			files.insert(new_rel_path, File<STR>(file));
             tags_used.insert(file.inherited_tags.begin(), file.inherited_tags.end());
         }
 
@@ -603,8 +607,7 @@ public:
 			}
 			else if (f != nullptr && f->hash == hash_buffer)
 			{
-				File<STR> file_copy = *f;
-				files.insert(rel_path, std::move(file_copy));
+				files.insert(rel_path, File<STR>(*f));
 				this->set_needs_saving(true);
 			}
 		}
