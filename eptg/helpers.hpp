@@ -18,12 +18,12 @@
 #include <QString>
 #include <QPixmap>
 #include <QSize>
+#include <QCryptographicHash>
 
 #include "eptg/path.hpp"
 #include "eptg/string.hpp"
 #include "eptg/in.hpp"
 #include "eptg/string.hpp"
-
 
 int get_column(const QTableWidgetItem *item);
 int get_column(const QModelIndex      &item);
@@ -232,6 +232,8 @@ std::wstring read_file(const STR & full_path)
 	std::wstring json_string = buffer.str();
 	return json_string;
 }
+
+QString checksum_4k(const QString &fileName);
 
 namespace eptg{
 template <class K, class T, class C, class A, class Predicate>
