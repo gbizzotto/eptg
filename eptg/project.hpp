@@ -489,10 +489,11 @@ public:
     // returns whether a new project has been created in destination folder.
 	Project execute(const eptg::CopyMoveData<STR> & copy_move_data)
 	{
-		Project dest_project(copy_move_data.dest, read_file(path::append(copy_move_data.dest, PROJECT_FILE_NAME)));
-        std::set<STR> tags_used;
+		bool is_same_project = path == copy_move_data.dest;
+		bool is_internal = path::is_sub(path, copy_move_data.dest);
 
-        bool is_internal = path::is_sub(path, copy_move_data.dest);
+		Project dest_project(copy_move_data.dest, is_same_project?L"":read_file(path::append(copy_move_data.dest, PROJECT_FILE_NAME)));
+        std::set<STR> tags_used;
 
 		set_needs_saving(is_internal);
 		set_needs_saving(copy_move_data.is_move);
@@ -529,8 +530,16 @@ public:
                     tags_used.insert(tag);
             }
 
-            if (copy_move_data.is_move)
-                files.erase(old_rel_path);
+			if (copy_move_data.is_move)
+			{
+				if (is_internal)
+				{
+					auto old_full_path = path::append(path , old_rel_path);
+					auto rel_old_path_in_dest = path::relative(copy_move_data.dest, old_full_path);
+					dest_project.files.erase(rel_old_path_in_dest);
+				}
+				files.erase(old_rel_path);
+			}
         }
 
         // tag inheritance
