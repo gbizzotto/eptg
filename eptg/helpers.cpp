@@ -99,3 +99,20 @@ QPixmap make_preview(const QString & base_path, const std::set<QString> & select
 	return image_result;
 }
 
+
+QString checksum_4k(const QString &fileName)
+{
+	QFile f(fileName);
+	QCryptographicHash hash(QCryptographicHash::Sha256);
+	if (f.open(QFile::ReadOnly))
+	{
+		QByteArray a = f.read(4096);
+		if (a.length() > 0)
+		{
+			hash.addData(a);
+			auto result = hash.result();
+			return result.toHex();
+		}
+	}
+	return "";
+}

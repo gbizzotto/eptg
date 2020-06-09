@@ -11,6 +11,7 @@
 #include <fstream>
 #include <locale>
 #include <experimental/map>
+#include <algorithm>
 
 #include "eptg/search.hpp"
 #include "eptg/helpers.hpp"
@@ -57,13 +58,24 @@ struct taggable
 	}
 };
 
-template<typename T> using File = taggable<T>;
+template<typename STR>
+struct File : taggable<STR>
+{
+	STR hash;
+	File(const QString & hash)
+		:hash(hash)
+	{}
+	File(const File & other)
+		:taggable<STR>(other)
+		,hash(other.hash)
+	{}
+};
 template<typename T> using Tag  = taggable<T>;
 
 template<typename STR, typename T>
 struct taggable_collection
 {
-    std::map<STR,T> collection;
+	std::map<STR,T> collection;
 
     inline size_t size() const { return collection.size(); }
     inline size_t count_tagged() const
@@ -134,16 +146,48 @@ struct taggable_collection
 };
 
 template<typename STR>
+struct file_collection : taggable_collection<STR,File<STR>>
+{
+	using T = File<STR>;
+	std::map<STR,T*> by_hash;
+
+	const T * find_by_hash(const STR & id) const
+	{
+		auto it = this->by_hash.find(id);
+		if (it == this->by_hash.end())
+			return nullptr;
+		return it->second;
+	}
+	T * find_by_hash(const STR & id) { return const_cast<T*>(const_cast<const file_collection*>(this)->find_by_hash(id)); }
+	T & insert(const STR & id, T && t)
+	{
+		T & f = this->collection.insert({id, t}).first->second;
+		by_hash.insert({f.hash,&f});
+		return f;
+	}
+	bool has_hash(const STR & id) const   { return by_hash.find(id) != by_hash.end(); }
+	bool erase(const STR & id)
+	{
+		auto it = this->collection.find(id);
+		if (it == this->collection.end())
+			return false;
+		this->by_hash.erase(it->second.hash);
+		this->collection.erase(it);
+		return true;
+	}
+};
+
+template<typename STR>
 class Project
 {
 private:
     STR path;
-    taggable_collection<STR,File<STR>> files;
-    taggable_collection<STR,Tag <STR>> tags ;
+	file_collection<STR> files;
+	taggable_collection<STR,Tag <STR>> tags;
 	bool needs_saving = false;
 
 public:
-	explicit inline Project()
+	explicit Project()
 	{}
 
 	Project(const STR & path, const std::wstring & json_string)
@@ -162,7 +206,10 @@ public:
 			if ( ! std::holds_alternative<json::dict<STR>>(file_var))
 				continue;
 			json::dict<STR> file_dict = std::get<json::dict<STR>>(file_var);
-			File<STR> & file = files.insert(rel_path, File<STR>());
+			STR hash_buffer = checksum_4k(path::append(path, rel_path));
+			if (hash_buffer.length() == 0 && in(file_dict, "hash"))
+				hash_buffer = std::get<STR>(file_dict["hash"]);
+			File<STR> & file = files.insert(rel_path, File<STR>(hash_buffer));
 			if ( ! in(file_dict, "tags" ) || ! std::holds_alternative<json::array<STR>>(file_dict["tags" ]))
 				continue;
 			for (const auto & tagname_var : std::get<json::array<STR>>(file_dict["tags"]))
@@ -211,8 +258,8 @@ public:
 	const STR & get_path() const { return path; }
 	const decltype(files) & get_files       () const {                         return files; }
 		  decltype(files) & get_files_modify()       { set_needs_saving(true); return files; }
-	const decltype(files) & get_tags        () const {                         return tags ; }
-		  decltype(files) & get_tags_modify ()       { set_needs_saving(true); return tags ; }
+	const decltype(tags ) & get_tags        () const {                         return tags ; }
+		  decltype(tags ) & get_tags_modify ()       { set_needs_saving(true); return tags ; }
 	bool get_needs_saving() const { return needs_saving; }
 	void set_needs_saving(bool f)
 	{
@@ -233,7 +280,7 @@ public:
 		for (const auto & [rel_path,file] : sub_project.get_files().collection)
         {
             const STR new_rel_path = path::append(sub_project_rel_path, rel_path);
-            files.insert(new_rel_path, eptg::taggable(file));
+			files.insert(new_rel_path, File<STR>(file));
             tags_used.insert(file.inherited_tags.begin(), file.inherited_tags.end());
         }
 
@@ -389,8 +436,12 @@ public:
                         ,std::function<void(const STR&,int)> tag_count_callback
                         ,std::function<void(const STR & selected_tag_name, const STR & st)> tag_loop_callback = [](const STR&, const STR&){}
                         )
-    {
-        std::set<STR> common_tags  = get_common_tags((ISTAG?tags:files).get_all_by_name(taggables_names));
+	{
+		std::set<STR> common_tags;
+		if (ISTAG)
+			common_tags = get_common_tags(tags.get_all_by_name(taggables_names));
+		else
+			common_tags = get_common_tags(files.get_all_by_name(taggables_names));
         std::set<STR> added_tags   = added(common_tags, typed_tags);
         std::set<STR> removed_tags = added(typed_tags, common_tags);
 
@@ -401,7 +452,11 @@ public:
 
         for (const STR & taggable_name : taggables_names)
         {
-            taggable<STR> * tagbl = (ISTAG?tags:files).find(taggable_name);
+			taggable<STR> * tagbl;
+			if (ISTAG)
+				tagbl = tags.find(taggable_name);
+			else
+				tagbl = files.find(taggable_name);
 
             if (removed_tags.size() > 0)
                 for (const STR & t : removed_tags)
@@ -434,10 +489,11 @@ public:
     // returns whether a new project has been created in destination folder.
 	Project execute(const eptg::CopyMoveData<STR> & copy_move_data)
 	{
-		Project dest_project(copy_move_data.dest, read_file(path::append(copy_move_data.dest, PROJECT_FILE_NAME)));
-        std::set<STR> tags_used;
+		bool is_same_project = path == copy_move_data.dest;
+		bool is_internal = path::is_sub(path, copy_move_data.dest);
 
-        bool is_internal = path::is_sub(path, copy_move_data.dest);
+		Project dest_project(copy_move_data.dest, is_same_project?L"":read_file(path::append(copy_move_data.dest, PROJECT_FILE_NAME)));
+        std::set<STR> tags_used;
 
 		set_needs_saving(is_internal);
 		set_needs_saving(copy_move_data.is_move);
@@ -463,8 +519,8 @@ public:
                               );
 
             // files in Project
-			eptg::File<STR> & new_file = dest_project.get_files_modify().insert(new_rel_path, eptg::File<STR>{});
-            const eptg::File<STR> * old_file = files.find(old_rel_path);
+			const eptg::File<STR> * old_file = files.find(old_rel_path);
+			eptg::File<STR> & new_file = dest_project.get_files_modify().insert(new_rel_path, eptg::File<STR>(old_file->hash));
 
             // tags in Project
             for (const STR & tag : old_file->inherited_tags)
@@ -474,8 +530,16 @@ public:
                     tags_used.insert(tag);
             }
 
-            if (copy_move_data.is_move)
-                files.erase(old_rel_path);
+			if (copy_move_data.is_move)
+			{
+				if (is_internal)
+				{
+					auto old_full_path = path::append(path , old_rel_path);
+					auto rel_old_path_in_dest = path::relative(copy_move_data.dest, old_full_path);
+					dest_project.files.erase(rel_old_path_in_dest);
+				}
+				files.erase(old_rel_path);
+			}
         }
 
         // tag inheritance
@@ -535,14 +599,30 @@ public:
 
 	void sweep()
 	{
-		// prune deleted files
-		using namespace std::experimental;
-		erase_if(files.collection, [this](const auto & p){ return ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, p.first))); });
 		// sweep directory
 		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path)))
 			return;
-		for (const STR & str : path::sweep(path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pbm", ".pgm", ".ppm", ".xbm", ".xpm", ".txt"}))
-			files.insert(str, File<STR>());
+		for (const STR & rel_path : path::sweep(path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pbm", ".pgm", ".ppm", ".xbm", ".xpm", ".txt"}))
+		{
+			STR hash_buffer = checksum_4k(path::append(path, rel_path));
+			const File<STR> * f = files.find(rel_path);
+			if (f != nullptr)
+				continue; // file already known
+			f = files.find_by_hash(hash_buffer);
+			if (f == nullptr)
+			{
+				files.insert(rel_path, File<STR>(hash_buffer));
+				continue;
+			}
+			else if (f != nullptr && f->hash == hash_buffer)
+			{
+				files.insert(rel_path, File<STR>(*f));
+				this->set_needs_saving(true);
+			}
+		}
+		// prune deleted files
+		using namespace std::experimental;
+		erase_if(files.collection, [this](const auto & p){ return ! eptg::fs::exists(eptg::str::to<std::string>(path::append(path, p.first))); });
 	}
 
 	bool save(bool force = false)
@@ -568,6 +648,7 @@ public:
 				continue;
 			eptg::json::dict<STR> ok;
 			ok.insert({"tags",tags_array});
+			ok.insert({"hash",file.hash});
 			files_dict.insert({id,std::move(ok)});
 		}
 		eptg::json::dict<STR> tags_dict;
