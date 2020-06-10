@@ -31,7 +31,8 @@ SOURCES += \
     eptg/path.cpp \
     eptg/string.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    qexifimageheader.cpp
 
 HEADERS += \
     MyDialogFindSimilar.h \
@@ -50,7 +51,8 @@ HEADERS += \
     eptg/search.hpp \
     eptg/string.hpp \
     eptg/synchronized.hpp \
-    mainwindow.h \
+    mainwindow.h \ \
+    qexifimageheader.h
 
 FORMS += \
     copy_move_wizard.ui \
