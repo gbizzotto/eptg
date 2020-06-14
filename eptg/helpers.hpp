@@ -42,6 +42,9 @@ std::set<QString> names_from_list(const QList<ITEM_TYPE> & selected_items)
 std::set<QString> names_from_list(const QListWidget * list);
 
 
+bool has_exif_orientation(const QString & full_path);
+unsigned int get_exif_orientation(const QString & full_path);
+
 bool images_close(const QImage & left, const QImage & right, int allowed_difference);
 std::tuple<QPixmap,QSize,int> make_image  (const QString & full_path, const QSize & initial_size, const QSize & max_size);
 QPixmap make_preview(const QString & base_path, const std::set<QString> & selected_items_text, const QSize & size);

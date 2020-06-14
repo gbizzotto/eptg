@@ -52,6 +52,7 @@ struct ExifIfdHeader
         char offsetAscii[ 4 ];
         quint16 offsetShorts[ 2 ];
     };
+	size_t offset_in_device = 0;
 };
 
 QDataStream &operator >>( QDataStream &stream, ExifIfdHeader &header )
@@ -70,8 +71,10 @@ QDataStream &operator >>( QDataStream &stream, ExifIfdHeader &header )
     }
     else if( header.type == QExifValue::Short && header.count <= 2 )
     {
+		if (header.tag == 0x0112)
+			header.offset_in_device = stream.device()->pos();
         stream >> header.offsetShorts[ 0 ];
-        stream >> header.offsetShorts[ 1 ];
+		stream >> header.offsetShorts[ 1 ];
     }
     else
     {
@@ -866,6 +869,7 @@ public:
 */
 QExifImageHeader::QExifImageHeader()
     : d( new QExifImageHeaderPrivate )
+	, orientation_offset(0)
 {
     d->byteOrder = QSysInfo::ByteOrder;
     d->size = -1;
@@ -917,12 +921,13 @@ bool QExifImageHeader::loadFromJpeg(QIODevice *device)
 {
 	clear();
 
-	QByteArray exifData = extractExif(device);
+	size_t exif_offset;
+	QByteArray exifData = extractExif(device, &exif_offset);
 
 	if (!exifData.isEmpty()) {
 		QBuffer buffer(&exifData);
 
-		return buffer.open(QIODevice::ReadOnly) && read(&buffer);
+		return buffer.open(QIODevice::ReadOnly) && read(&buffer, exif_offset);
 	}
 
 	return false;
@@ -1366,7 +1371,7 @@ void QExifImageHeader::setThumbnail( const QImage &thumbnail )
     d->size = -1;
 }
 
-QByteArray QExifImageHeader::extractExif( QIODevice *device ) const
+QByteArray QExifImageHeader::extractExif( QIODevice *device , size_t * exif_offset ) const
 {
     QDataStream stream( device );
 
@@ -1395,6 +1400,8 @@ QByteArray QExifImageHeader::extractExif( QIODevice *device ) const
         return QByteArray();
 
     device->read( 2 );
+
+	*exif_offset = device->pos();
 
     return device->read( length - 8 );
 }
@@ -1461,8 +1468,7 @@ QExifValue QExifImageHeader::readIfdValue(QDataStream &stream, int startPos, con
             QVector<quint16> value(header.count);
 
             if (header.count > 2) {
-                stream.device()->seek(startPos + header.offset);
-
+				stream.device()->seek(startPos + header.offset);
                 for (quint32 i = 0; i < header.count; i++)
                     stream >> value[i];
             } else {
@@ -1531,33 +1537,36 @@ QExifValue QExifImageHeader::readIfdValue(QDataStream &stream, int startPos, con
 }
 
 template <typename T> QMap<T, QExifValue> QExifImageHeader::readIfdValues(
-        QDataStream &stream, int startPos, const QList<ExifIfdHeader> &headers) const
+		QDataStream &stream, int startPos, const QList<ExifIfdHeader> &headers, size_t exif_offset, QIODevice *device)
 {
     QMap<T, QExifValue> values;
 
     // This needs to be non-const so it works with gcc3
     QList<ExifIfdHeader> headers_ = headers;
     foreach (const ExifIfdHeader &header, headers_)
+	{
         values[T(header.tag)] = readIfdValue(stream, startPos, header);
+		if (header.tag == 0x0112 && orientation_offset == 0) // orientation
+			orientation_offset = exif_offset + header.offset_in_device;
+	}
 
     return values;
 }
 
 template <typename T>
 QMap<T, QExifValue> QExifImageHeader::readIfdValues(
-        QDataStream &stream, int startPos, const QExifValue &pointer) const
+		QDataStream &stream, int startPos, const QExifValue &pointer, size_t exif_offset, QIODevice *device)
 {
     if (pointer.type() == QExifValue::Long && pointer.count() == 1) {
         stream.device()->seek(startPos + pointer.toLong());
 
         QList<ExifIfdHeader> headers = readIfdHeaders(stream);
 
-        return readIfdValues<T>(stream, startPos, headers);
+		return readIfdValues<T>(stream, startPos, headers, exif_offset, device);
     } else {
         return QMap<T, QExifValue >();
     }
 }
-
 
 /*!
     Reads the contents of an EXIF header from an I/O \a device.
@@ -1566,7 +1575,7 @@ QMap<T, QExifValue> QExifImageHeader::readIfdValues(
 
     \sa loadFromJpeg(), write()
 */
-bool QExifImageHeader::read(QIODevice *device)
+bool QExifImageHeader::read(QIODevice *device, size_t exif_offset)
 {
     clear();
 
@@ -1577,10 +1586,12 @@ bool QExifImageHeader::read(QIODevice *device)
     QByteArray byteOrder = device->read(2);
 
     if (byteOrder == "II") {
+		is_big_endian = false;
         d->byteOrder = QSysInfo::LittleEndian;
 
         stream.setByteOrder( QDataStream::LittleEndian );
     } else if (byteOrder == "MM") {
+		is_big_endian = true;
         d->byteOrder = QSysInfo::BigEndian;
 
         stream.setByteOrder( QDataStream::BigEndian );
@@ -1603,38 +1614,38 @@ bool QExifImageHeader::read(QIODevice *device)
 
     stream >> offset;
 
-    d->imageIfdValues = readIfdValues<ImageTag>(stream, startPos, headers);
+	d->imageIfdValues = readIfdValues<ImageTag>(stream, startPos, headers, exif_offset, device);
 
     QExifValue exifIfdPointer = d->imageIfdValues.take(ImageTag(ExifIfdPointer));
     QExifValue gpsIfdPointer = d->imageIfdValues.take(ImageTag(GpsInfoIfdPointer));
 
-    d->exifIfdValues = readIfdValues<ExifExtendedTag>(stream, startPos, exifIfdPointer);
-    d->gpsIfdValues = readIfdValues<GpsTag>(stream, startPos, gpsIfdPointer);
+	d->exifIfdValues = readIfdValues<ExifExtendedTag>(stream, startPos, exifIfdPointer, exif_offset, device);
+	d->gpsIfdValues = readIfdValues<GpsTag>(stream, startPos, gpsIfdPointer, exif_offset, device);
 
     d->exifIfdValues.remove(ExifExtendedTag(InteroperabilityIfdPointer));
 
-    if (offset) {
-        device->seek(startPos + offset);
+//    if (offset) {
+//        device->seek(startPos + offset);
 
-        QMap<quint16, QExifValue> thumbnailIfdValues = readIfdValues<quint16>(
-                stream, startPos, readIfdHeaders( stream));
+//		QMap<quint16, QExifValue> thumbnailIfdValues = readIfdValues<quint16>(
+//				stream, startPos, readIfdHeaders( stream), exif_offset, device);
 
-        QExifValue jpegOffset = thumbnailIfdValues.value(JpegInterchangeFormat);
-        QExifValue jpegLength = thumbnailIfdValues.value(JpegInterchangeFormatLength);
+//        QExifValue jpegOffset = thumbnailIfdValues.value(JpegInterchangeFormat);
+//        QExifValue jpegLength = thumbnailIfdValues.value(JpegInterchangeFormatLength);
 
-        if (jpegOffset.type() == QExifValue::Long && jpegOffset.count() == 1
-            && jpegLength.type() == QExifValue::Long && jpegLength.count() == 1)
-        {
-            device->seek(startPos + jpegOffset.toLong());
+//        if (jpegOffset.type() == QExifValue::Long && jpegOffset.count() == 1
+//            && jpegLength.type() == QExifValue::Long && jpegLength.count() == 1)
+//        {
+//            device->seek(startPos + jpegOffset.toLong());
 
-            d->thumbnailData = device->read( jpegLength.toLong() );
+//            d->thumbnailData = device->read( jpegLength.toLong() );
 
-            d->thumbnailXResolution = thumbnailIfdValues.value(XResolution);
-            d->thumbnailYResolution = thumbnailIfdValues.value(YResolution);
-            d->thumbnailResolutionUnit = thumbnailIfdValues.value(ResolutionUnit);
-            d->thumbnailOrientation = thumbnailIfdValues.value(Orientation);
-        }
-    }
+//            d->thumbnailXResolution = thumbnailIfdValues.value(XResolution);
+//            d->thumbnailYResolution = thumbnailIfdValues.value(YResolution);
+//            d->thumbnailResolutionUnit = thumbnailIfdValues.value(ResolutionUnit);
+//            d->thumbnailOrientation = thumbnailIfdValues.value(Orientation);
+//        }
+//    }
     return true;
 }
 

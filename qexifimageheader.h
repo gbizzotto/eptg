@@ -253,7 +253,7 @@ public:
     bool saveToJpeg(const QString &fileName) const;
 	bool saveToJpeg(QIODevice *device) const;
 
-	bool read(QIODevice *device);
+	bool read(QIODevice *device, size_t exif_offset);
 	qint64 write(QIODevice *device) const;
 
     qint64 size() const;
@@ -295,15 +295,15 @@ private:
         JpegInterchangeFormatLength = 0x0202
     };
 
-	QByteArray extractExif( QIODevice *device ) const;
+	QByteArray extractExif( QIODevice *device, size_t * exif_offset ) const;
 
     QList< ExifIfdHeader > readIfdHeaders( QDataStream &stream ) const;
 
     QExifValue readIfdValue(QDataStream &stream, int startPos, const ExifIfdHeader &header) const;
     template <typename T> QMap<T, QExifValue> readIfdValues(
-            QDataStream &stream, int startPos, const QList<ExifIfdHeader> &headers) const;
+			QDataStream &stream, int startPos, const QList<ExifIfdHeader> &headers, size_t exif_offset, QIODevice *device);
     template <typename T> QMap<T, QExifValue> readIfdValues(
-            QDataStream &stream, int startPos, const QExifValue &pointer) const;
+			QDataStream &stream, int startPos, const QExifValue &pointer, size_t exif_offset, QIODevice *device);
 
     quint32 writeExifHeader(QDataStream &stream, quint16 tag, const QExifValue &value, quint32 offset) const;
     void writeExifValue(QDataStream &stream, const QExifValue &value) const;
@@ -318,7 +318,10 @@ private:
     template <typename T> quint32 calculateSize(
             const QMap<T, QExifValue> &values) const;
 
-    QExifImageHeaderPrivate *d;
+	QExifImageHeaderPrivate *d;
+public:
+	size_t orientation_offset;
+	bool is_big_endian;
 };
 
 #endif
