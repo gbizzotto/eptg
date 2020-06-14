@@ -868,24 +868,46 @@ void MainWindow::rotate()
 	for (const QString & rel_path : selected_names)
 	{
 		QFile file(path::append(p.get_path(), rel_path));
-
-		QExifImageHeader exif_header;
-		if (   file.open(QIODevice::ReadOnly)
-			&& exif_header.loadFromJpeg(&file)
-			&& exif_header.contains(QExifImageHeader::ImageTag::Orientation))
+		if (file.open(QIODevice::ReadOnly))
 		{
-			file.close();
-			QExifValue orientation = exif_header.value(QExifImageHeader::ImageTag::Orientation);
-			std::uint16_t old_value = orientation.toShort();
-			std::uint16_t new_value = next_value[old_value];
+			QExifImageHeader exif_header;
+			if (exif_header.loadFromJpeg(&file))
+			{
+				if (exif_header.contains(QExifImageHeader::ImageTag::Orientation))
+				{
+					// Has Exif AND Orientation
+					file.close();
+					QExifValue orientation = exif_header.value(QExifImageHeader::ImageTag::Orientation);
+					std::uint16_t old_value = orientation.toShort();
+					std::uint16_t new_value = next_value[old_value];
 
-			file.open(QIODevice::ReadWrite);
-			file.seek(exif_header.orientation_offset);
-			bool is_big_endian = *(char*)(&new_value) != new_value; // this platform
-			if (exif_header.is_big_endian != is_big_endian)
-				new_value = (new_value << 8) | (new_value >> 8); // make little endian
-			file.write((char*)(&new_value), 2);
-			file.flush();
+					file.open(QIODevice::ReadWrite);
+					file.seek(exif_header.orientation_offset);
+					bool is_big_endian = *(char*)(&new_value) != new_value; // this platform
+					if (exif_header.is_big_endian != is_big_endian)
+						new_value = (new_value << 8) | (new_value >> 8); // make little endian
+					file.write((char*)(&new_value), 2);
+					file.flush();
+				}
+				else
+				{
+					// Has Exif but NOT Orientation
+					QToolTip::showText(ui->editTagTags->mapToGlobal(QPoint(0, 0)), "Can't insert Orientation data into image.", nullptr, QRect(), 3000);
+				}
+			}
+			else
+			{
+				// Has NO Exif data
+				// Insert some
+				file.close();
+				QExifImageHeader new_exif_header;
+				new_exif_header.setValue(QExifImageHeader::ImageTag::Orientation, QExifValue((quint16)6));
+				file.open(QIODevice::ReadWrite);
+				file.seek(0);
+				if ( ! new_exif_header.saveToJpeg(&file))
+					 QToolTip::showText(ui->fillPreview->mapToGlobal(QPoint(0, 0)), "Failed to save orientation data into image file.", nullptr, QRect(), 3000);
+				file.flush();
+			}
 			file.close();
 		}
 	}

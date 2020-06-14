@@ -42,6 +42,7 @@ std::set<QString> names_from_list(const QList<ITEM_TYPE> & selected_items)
 std::set<QString> names_from_list(const QListWidget * list);
 
 
+bool has_exif(const QString & full_path);
 bool has_exif_orientation(const QString & full_path);
 unsigned int get_exif_orientation(const QString & full_path);
 
