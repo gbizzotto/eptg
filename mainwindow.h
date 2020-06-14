@@ -29,7 +29,7 @@ public:
     void add_open_recent(const QString & pathName);
 	void select_next_file();
 	void select_next_tag();
-	void rotate();
+	void orient(int next_value[]);
 protected:
     void showEvent(QShowEvent *ev) override;
     void closeEvent(QCloseEvent *event) override;
@@ -89,6 +89,10 @@ private slots:
 	void on_menuClear_recents_triggered();
 
 	void on_menuRotate_triggered();
+
+	void on_menuHorizontal_Flip_triggered();
+
+	void on_menuVertical_Flip_triggered();
 
 private:
 	eptg::synchronized<std::unique_ptr<eptg::Project<QString>>> project_s;
