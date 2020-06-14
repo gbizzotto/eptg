@@ -1827,9 +1827,7 @@ template <typename T> void QExifImageHeader::writeExifValues(
 */
 qint64 QExifImageHeader::write(QIODevice *device) const
 {
-#ifndef QT_NO_DEBUG
-    qint64 startPos = device->pos();
-#endif
+	qint64 startPos = device->pos();
 
     QDataStream stream( device );
 
