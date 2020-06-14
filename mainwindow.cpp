@@ -859,16 +859,11 @@ void MainWindow::on_fillList_currentItemChanged(QListWidgetItem *current, QListW
 
 }
 
-void MainWindow::rotate()
+void MainWindow::orient(int next_value[])
 {
 	auto project = project_s.GetSynchronizedProxy();
 	auto & p = *project->get();
 	auto selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
-
-	// 0, 90, 180, 270 degrees
-	// [0,1] - 6 - 3 - 8
-	// 2 - 7 - 4 - 5
-	int next_value[] = {6, 6, 7, 8, 5, 2, 3, 4, 1};
 
 	for (const QString & rel_path : selected_names)
 	{
@@ -922,5 +917,28 @@ void MainWindow::rotate()
 
 void MainWindow::on_menuRotate_triggered()
 {
-	rotate();
+	// 0, 90, 180, 270 degrees
+	// [0,1] - 6 - 3 - 8
+	// 2 - 7 - 4 - 5
+	//int next_value[] = {6, 6, 7, 8, 5, 2, 3, 4, 1};
+	int next_value[] = {6, 6, 5, 8, 7, 4, 3, 2, 1};
+	orient(next_value);
+}
+
+void MainWindow::on_menuHorizontal_Flip_triggered()
+{
+	// 0, 90, 180, 270 degrees
+	// [0,1] - 6 - 3 - 8
+	// 2 - 7 - 4 - 5
+	int next_value[] = {2, 2, 1, 4, 3, 8, 7, 6, 5};
+	orient(next_value);
+}
+
+void MainWindow::on_menuVertical_Flip_triggered()
+{
+	// 0, 90, 180, 270 degrees
+	// [0,1] - 6 - 3 - 8
+	// 2 - 7 - 4 - 5
+	int next_value[] = {4, 4, 3, 2, 1, 6, 5, 8, 7};
+	orient(next_value);
 }
