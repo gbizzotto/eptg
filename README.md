@@ -15,8 +15,9 @@ Features:
 * Tag inheritance (tag your friends' pictures with their names and tag their names with "friend", so you can search for "friend" and retrieve all the pictures of your buddies)
 * Advanced search with AND, OR and NOT keywords, and parenthesis. Default is AND.
 * Autocompletion based on tag frequency
-* Multiselection for mass tagging
+* Multiselection for mass (un)tagging
 * Picture preview for single and multiselection
+* Allows jpeg rotation and flips without quality loss (uses the Exif Orientation tag)
 * Automatically opens the most recent location
 * Automatically opens the first untagged file
 * Shows %completion for entire location
