@@ -7,6 +7,7 @@
 #include <QPixmap>
 #include <QSize>
 
+#include "qexifimageheader.h"
 #include "eptg/helpers.hpp"
 #include "eptg/constants.hpp"
 
@@ -42,6 +43,37 @@ bool images_close(const QImage & left, const QImage & right, int allowed_differe
     return true;
 }
 
+bool has_exif(const QString & full_path)
+{
+	QFile file(full_path);
+	QExifImageHeader exif_header;
+	file.open(QIODevice::ReadOnly);
+	bool result = exif_header.loadFromJpeg(&file);
+	file.close();
+	return result;
+}
+bool has_exif_orientation(const QString & full_path)
+{
+	QFile file(full_path);
+	QExifImageHeader exif_header;
+	file.open(QIODevice::ReadOnly);
+	bool result = exif_header.loadFromJpeg(&file) && exif_header.contains(QExifImageHeader::ImageTag::Orientation);
+	file.close();
+	return result;
+}
+unsigned int get_exif_orientation(const QString & full_path)
+{
+	QFile file(full_path);
+	QExifImageHeader exif_header;
+	if (   file.open(QIODevice::ReadOnly)
+		&& exif_header.loadFromJpeg(&file)
+		&& exif_header.contains(QExifImageHeader::ImageTag::Orientation))
+	{
+		return exif_header.value(QExifImageHeader::ImageTag::Orientation).toLong();
+	}
+	return 0;
+}
+
 std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize & initial_size, const QSize & thumb_size)
 {
 	QSize orig_size;
@@ -63,6 +95,26 @@ std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize 
 	}
 	else
 		orig_size = image.size();
+
+	unsigned int exif_orientation = get_exif_orientation(full_path);
+	if (exif_orientation > 1)
+	{
+		QPixmap pixmap;
+		pixmap.convertFromImage(image);
+		QMatrix rm;
+		switch(exif_orientation)
+		{
+			case 2: rm.scale(-1,1); break;
+			case 3: rm.rotate(180); break;
+			case 4: rm.scale(1,-1); break;
+			case 5: rm.scale(-1,1); rm.rotate(270); break;
+			case 6: rm.rotate(90); break;
+			case 7: rm.scale(-1,1); rm.rotate(90); break;
+			case 8: rm.rotate(270); break;
+			default: break;
+		}
+		image = pixmap.transformed(rm).toImage();
+	}
 
 	if (   thumb_size.isValid()
 		&& (image.width() > thumb_size.width() || image.height() > thumb_size.height()))
