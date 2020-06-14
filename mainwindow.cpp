@@ -32,6 +32,7 @@
 #include "eptg/helpers.hpp"
 #include "eptg/path.hpp"
 #include "eptg/string.hpp"
+#include "qexifimageheader.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -867,52 +868,34 @@ void MainWindow::rotate()
 	// 0, 90, 180, 270 degrees
 	// [0,1] - 6 - 3 - 8
 	// 2 - 7 - 4 - 5
-
 	int next_value[] = {6, 6, 7, 8, 5, 2, 3, 4, 1};
 
 	for (const QString & rel_path : selected_names)
 	{
-		QString full_path = path::append(p.get_path(), rel_path);
-		QStringList args{"-Orientation", "-n", full_path};
-		QProcess process;
-		process.start("exiftool", args);
-		process.waitForFinished(); // sets current thread to sleep and waits for process end
-		QString output(process.readAllStandardOutput());
-		QStringList tokens = output.split(":");
-		if (tokens.size() < 2)
-			continue;
-		int current_value = tokens[1].toInt();
-		if (current_value > 8)
-			current_value = 1;
-		args = QStringList{"-Orientation="+QString::number(next_value[current_value]), "-n", full_path};
-		process.start("exiftool", args);
-		process.waitForFinished();
-		QString output2(process.readAllStandardOutput());
-		int a = 1;
+		QFile file(path::append(p.get_path(), rel_path));
+
+		QExifImageHeader exif_header;
+		if (   file.open(QIODevice::ReadOnly)
+			&& exif_header.loadFromJpeg(&file)
+			&& exif_header.contains(QExifImageHeader::ImageTag::Orientation))
+		{
+			file.close();
+			QExifValue orientation = exif_header.value(QExifImageHeader::ImageTag::Orientation);
+			std::uint16_t old_value = orientation.toShort();
+			std::uint16_t new_value = next_value[old_value];
+
+			file.open(QIODevice::ReadWrite);
+			file.seek(exif_header.orientation_offset);
+			bool is_big_endian = *(char*)(&new_value) != new_value; // this platform
+			if (exif_header.is_big_endian != is_big_endian)
+				new_value = (new_value << 8) | (new_value >> 8); // make little endian
+			file.write((char*)(&new_value), 2);
+			file.flush();
+			file.close();
+		}
 	}
 
-
-//	int i = 0;
-//	for (const QString & rel_path : selected_names)
-//	{
-//		QString full_path = path::append((*project_s.GetSynchronizedProxy())->get_path(), rel_path);
-//		QImage img(full_path);
-//		QTransform rm;
-//		rm.rotate(90);
-//		img = img.transformed(rm);
-//		img.save("/tmp/ok_" + QString::number(i) + ".jpg");
-
-//		i++;
-//	}
-
 	this->preview_pictures(selected_names);
-
-//	QPixmap pixmap(*ui->fillPreview->pixmap());
-//	QTransform rm;
-//	rm.rotate(90);
-//	pixmap = pixmap.transformed(rm);
-//	ui->fillPreview->setPixmap(pixmap);
-//	this->rotated++;
 }
 
 void MainWindow::on_menuRotate_triggered()

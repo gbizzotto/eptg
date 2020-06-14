@@ -43,6 +43,26 @@ bool images_close(const QImage & left, const QImage & right, int allowed_differe
     return true;
 }
 
+bool has_exif_orientation(const QString & full_path)
+{
+	QFile file(full_path);
+	QExifImageHeader exif_header;
+	file.open(QIODevice::ReadOnly);
+	return exif_header.loadFromJpeg(&file);
+}
+unsigned int get_exif_orientation(const QString & full_path)
+{
+	QFile file(full_path);
+	QExifImageHeader exif_header;
+	if (   file.open(QIODevice::ReadOnly)
+		&& exif_header.loadFromJpeg(&file)
+		&& exif_header.contains(QExifImageHeader::ImageTag::Orientation))
+	{
+		return exif_header.value(QExifImageHeader::ImageTag::Orientation).toLong();
+	}
+	return 0;
+}
+
 std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize & initial_size, const QSize & thumb_size)
 {
 	QSize orig_size;
@@ -68,31 +88,24 @@ std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize 
 	if (   thumb_size.isValid()
 		&& (image.width() > thumb_size.width() || image.height() > thumb_size.height()))
 	{
-		QExifImageHeader exif_header;
-		if (   file.open(QIODevice::ReadOnly)
-			&& exif_header.loadFromJpeg(&file)
-			&& exif_header.contains(QExifImageHeader::ImageTag::Orientation))
+		unsigned int exif_orientation = get_exif_orientation(full_path);
+		if (exif_orientation > 1)
 		{
-			QExifValue orientation = exif_header.value(QExifImageHeader::ImageTag::Orientation);
-			unsigned int value = orientation.toLong();
-			if (value != 1)
+			QPixmap pixmap;
+			pixmap.convertFromImage(image);
+			QMatrix rm;
+			switch(exif_orientation)
 			{
-				QPixmap pixmap;
-				pixmap.convertFromImage(image);
-				QMatrix rm;
-				switch(value)
-				{
-					case 2: rm.scale(-1,1); break;
-					case 3: rm.rotate(180); break;
-					case 4: rm.scale(1,-1); break;
-					case 5: rm.scale(-1,1); rm.rotate(270); break;
-					case 6: rm.rotate(90); break;
-					case 7: rm.scale(-1,1); rm.rotate(90); break;
-					case 8: rm.rotate(270); break;
-					default: break;
-				}
-				image = pixmap.transformed(rm).toImage();
+				case 2: rm.scale(-1,1); break;
+				case 3: rm.rotate(180); break;
+				case 4: rm.scale(1,-1); break;
+				case 5: rm.scale(-1,1); rm.rotate(270); break;
+				case 6: rm.rotate(90); break;
+				case 7: rm.scale(-1,1); rm.rotate(90); break;
+				case 8: rm.rotate(270); break;
+				default: break;
 			}
+			image = pixmap.transformed(rm).toImage();
 		}
 		image = image.scaled(thumb_size, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
 	}
