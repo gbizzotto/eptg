@@ -32,14 +32,25 @@ STR to(const std::string & str)
 {
     return str.c_str();
 }
+template<typename STR>
+STR to(const std::wstring & str)
+{
+    return str.c_str();
+}
 
-template<>     QString to<    QString>(const std::string & str);
-template<>     QString to<    QString>(const     QString & str);
-template<> std::string to<std::string>(const std::string & str);
-template<> std::string to<std::string>(const     QString & str);
-template<> std::wstring to<std::wstring>(const std::string & str);
-template<> std::wstring to<std::wstring>(const     QString & str);
+template<>     QString to<    QString>(const std:: string & str);
+template<>     QString to<    QString>(const std::wstring & str);
+template<>     QString to<    QString>(const      QString & str);
+template<> std::string to<std::string>(const std:: string & str);
+template<> std::string to<std::string>(const std::wstring & str);
+template<> std::string to<std::string>(const      QString & str);
+template<> std::wstring to<std::wstring>(const std:: string & str);
+template<> std::wstring to<std::wstring>(const std::wstring & str);
+template<> std::wstring to<std::wstring>(const      QString & str);
 
+inline int value(const QChar   c) { return c.digitValue(); }
+inline int value(const  char   c) { return (int)c; }
+inline int value(const wchar_t c) { return (int)c; }
 
 }} // namespaces
 

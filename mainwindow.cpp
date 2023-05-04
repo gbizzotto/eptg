@@ -132,8 +132,8 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 			if (  keyEvent->key() == Qt::Key_Up     || keyEvent->key() == Qt::Key_Down
 			   || keyEvent->key() == Qt::Key_PageUp || keyEvent->key() == Qt::Key_PageDown )
 			{
-				save_current_file_tags();
-				QCoreApplication::postEvent(ui->fillList, new QKeyEvent(*keyEvent));
+                save_current_file_tags();
+                QCoreApplication::postEvent(ui->fillList, new QKeyEvent(*keyEvent));
 				QCoreApplication::postEvent(ui->fillList, new QKeyEvent(QEvent::KeyPress, Qt::Key_F2, Qt::KeyboardModifier::NoModifier));
 				return true;
 			}
@@ -234,7 +234,7 @@ void MainWindow::open(const QString & pathName)
 
 	try
 	{
-		auto new_project = std::make_unique<eptg::Project<QString>>(pathName, read_file(path::append(pathName, PROJECT_FILE_NAME)));
+        auto new_project = std::make_unique<eptg::Project<QString>>(eptg::str::to<QString>(pathName), eptg::str::to<QString>(read_file(path::append(pathName, PROJECT_FILE_NAME))));
 		new_project->sweep();
 		auto & project = *project_s.GetSynchronizedProxy();
 		project.swap(new_project);
@@ -606,7 +606,7 @@ void MainWindow::on_fillList_itemSelectionChanged()
     {
         ui->pathEdit->setEnabled(true);
         ui->pathEdit->setText(*selected_names.begin());
-        int w = ui->pathEdit->fontMetrics().width(ui->pathEdit->text());
+        int w = ui->pathEdit->fontMetrics().boundingRect(ui->pathEdit->text()).width();
         if (w <= ui->pathEdit->width() - 8)
             ui->pathEdit->setAlignment(Qt::AlignLeft);
         else
@@ -846,3 +846,9 @@ void MainWindow::on_menuClear_recents_triggered()
 	settings.beginWriteArray("recents");
 	settings.endArray();
 }
+
+void MainWindow::on_fillList_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous)
+{
+
+}
+

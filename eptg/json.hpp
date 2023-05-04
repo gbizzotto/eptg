@@ -8,6 +8,8 @@
 #include <exception>
 #include <string>
 
+#include "eptg/string.hpp"
+
 namespace eptg {
 namespace json {
 
@@ -37,7 +39,13 @@ template<typename STR, typename CHR>
 STR read_string(const CHR *& c);
 
 template<typename CHR>
-int read_int(const CHR *& c);
+int read_int(const CHR *& c)
+{
+    int result = atoi((char*)c);
+    while ((eptg::str::value(*c) >= 0 && eptg::str::value(*c) <= 9) || *c == '-')
+        c++;
+    return result;
+}
 template<>
 int read_int<char>(const char *& c);
 template<>
@@ -62,7 +70,7 @@ var<STR> read_var(const CHR *& c)
         return read_array<STR>(c);
     else if (*c == '"')
         return read_string<STR>(c);
-    else if ((*c >= 0 && *c <= 9) || *c == '-')
+    else if ((eptg::str::value(*c) >= 0 && eptg::str::value(*c) <= 9) || *c == '-')
         return read_int(c);
     else
 		throw std::runtime_error("bad json");

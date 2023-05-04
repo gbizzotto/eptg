@@ -1,5 +1,7 @@
 
 #include <QStringList>
+#include <codecvt>
+#include <locale>
 
 #include "eptg/string.hpp"
 #include "eptg/in.hpp"
@@ -67,6 +69,11 @@ QString to<QString>(const std::string & str)
     return QString::fromStdString(str);
 }
 template<>
+QString to<QString>(const std::wstring & str)
+{
+    return QString::fromStdWString(str);
+}
+template<>
 QString to<QString>(const QString & str)
 {
     return str;
@@ -77,6 +84,13 @@ std::string to<std::string>(const std::string & str)
     return str;
 }
 template<>
+std::string to<std::string>(const std::wstring & str)
+{
+    using convert_type = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_type, wchar_t> converter;
+    return converter.to_bytes(str);
+}
+template<>
 std::string to<std::string>(const QString & str)
 {
     return str.toStdString();
@@ -84,7 +98,12 @@ std::string to<std::string>(const QString & str)
 template<>
 std::wstring to<std::wstring>(const std::string & str)
 {
-	return std::wstring(str.begin(), str.end());
+    return std::wstring(str.begin(), str.end());
+}
+template<>
+std::wstring to<std::wstring>(const std::wstring & str)
+{
+    return str;
 }
 template<>
 std::wstring to<std::wstring>(const QString & str)

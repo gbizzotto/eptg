@@ -33,7 +33,7 @@ MyDialogProcess::MyDialogProcess(const eptg::Project<QString> & project, QWidget
 QStringList MyDialogProcess::get_commands() const
 {
     const QString base_path = project.get_path();
-    const QStringList base_commands = this->plainTextEdit->toPlainText().split('\n', QString::SkipEmptyParts);
+    const QStringList base_commands = this->plainTextEdit->toPlainText().split('\n', Qt::SkipEmptyParts);
     QStringList commands;
 
     std::vector<std::vector<int>> positions;

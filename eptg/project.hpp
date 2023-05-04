@@ -146,12 +146,12 @@ public:
 	explicit inline Project()
 	{}
 
-	Project(const STR & path, const std::wstring & json_string)
+    Project(const STR & path, const STR & json_string)
 		: path(path)
 	{
 		if (json_string.size() == 0)
 			return;
-		const wchar_t * c = json_string.c_str();
+        const typename STR::value_type * c = json_string.data();
 		eptg::json::dict<STR> dict = eptg::json::read_dict<STR>(c);
 		if ( ! in(dict, "files") || ! std::holds_alternative<eptg::json::dict<STR>>(dict["files"]))
 			return;
@@ -434,7 +434,7 @@ public:
     // returns whether a new project has been created in destination folder.
 	Project execute(const eptg::CopyMoveData<STR> & copy_move_data)
 	{
-		Project dest_project(copy_move_data.dest, read_file(path::append(copy_move_data.dest, PROJECT_FILE_NAME)));
+        Project dest_project(eptg::str::to<STR>(copy_move_data.dest), eptg::str::to<STR>(read_file(path::append(copy_move_data.dest, PROJECT_FILE_NAME))));
         std::set<STR> tags_used;
 
         bool is_internal = path::is_sub(path, copy_move_data.dest);
@@ -590,7 +590,9 @@ public:
 
 		STR str = eptg::json::to_str(document, 0);
 
-		Project new_project("", eptg::str::to<std::wstring>(str));
+        STR empty_str = eptg::str::to<STR>(std::string(""));
+        STR ok = eptg::str::to<STR>(str);
+        Project new_project(empty_str, ok);
 		if (new_project != *this)
 			return false;
 

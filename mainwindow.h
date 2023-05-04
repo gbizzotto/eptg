@@ -87,6 +87,8 @@ private slots:
 
 	void on_menuClear_recents_triggered();
 
+    void on_fillList_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
+
 private:
 	eptg::synchronized<std::unique_ptr<eptg::Project<QString>>> project_s;
     Ui::MainWindow *ui;
