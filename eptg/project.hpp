@@ -605,11 +605,11 @@ public:
 		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path)))
 			return;
 		for (const STR & rel_path : path::sweep(path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pbm", ".pgm", ".ppm", ".xbm", ".xpm", ".txt"}))
-		{
-			STR hash_buffer = checksum_4k(path::append(path, rel_path));
+        {
+            STR hash_buffer = checksum_4k(path::append(path, rel_path));
 			const File<STR> * f = files.find(rel_path);
 			if (f != nullptr)
-				continue; // file already known
+                continue; // file already known
 			f = files.find_by_hash(hash_buffer);
 			if (f == nullptr)
 			{

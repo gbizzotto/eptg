@@ -515,19 +515,21 @@ QString QExifValue::toString() const
                     if( codec )
                         return codec->toUnicode( string );
                 }
-            break;
+                break;
             case UnicodeEncoding:
                 {
                     QTextCodec *codec = QTextCodec::codecForName( "UTF-16" );
                     if( codec )
                         return codec->toUnicode( string );
                 }
+                break;
             case UndefinedEncoding:
                 return QString::fromLocal8Bit( string.constData(), string.length() );
             default:
                 break;
             }
         }
+        break;
     default:
         return QString();
     }
