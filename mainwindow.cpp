@@ -680,22 +680,6 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
             faces = facelib.detectFaces(full_path.toStdString());
             identifyFaces();
         }
-
-        QFile file(full_path);
-        if (file.open(QIODevice::ReadOnly))
-        {
-            QExifImageHeader exif_header;
-            if (exif_header.loadFromJpeg(&file))
-            {
-                if (exif_header.contains(QExifImageHeader::ExifExtendedTag::DateTimeOriginal))
-                {
-                    // Has Exif AND Datetime
-                    QExifValue datetime = exif_header.value(QExifImageHeader::ExifExtendedTag::DateTimeOriginal);
-                    int a=0;
-                }
-            }
-            file.close();
-        }
     }
 	else if (selected_items_text.size() > 64 && ui->previewCheckBox->checkState() == Qt::CheckState::PartiallyChecked)
 	{
@@ -741,6 +725,30 @@ void MainWindow::on_fillList_itemSelectionChanged()
 	auto & project = *project_s.GetSynchronizedProxy();
 	std::set<const eptg::taggable<QString>*> selected_files = project->get_files().get_all_by_name(selected_names);
     QStringList common_tags = accumulate(project->get_common_tags(selected_files), QStringList());
+
+    // Add exif datetime to set
+    if (selected_names.size() == 1)
+    {
+        auto full_path = path::append(project->get_path(), *selected_names.begin());
+        QFile file(full_path);
+        if (file.open(QIODevice::ReadOnly))
+        {
+            QExifImageHeader exif_header;
+            if (exif_header.loadFromJpeg(&file))
+            {
+                if (exif_header.contains(QExifImageHeader::ExifExtendedTag::DateTimeOriginal))
+                {
+                    // Has Exif AND Datetime
+                    QString str = exif_header.value(QExifImageHeader::ExifExtendedTag::DateTimeOriginal).toString();
+                    QString datetime = str.mid(0,4).append("-").append(str.mid(5,2));
+                    if ( ! common_tags.contains(datetime))
+                        common_tags.append(datetime);
+                }
+            }
+            file.close();
+        }
+    }
+
     ui->tagsEdit->setText(common_tags.join(" ") + (common_tags.empty()?"":" "));
     ui->tagsEdit->setFocus();
 }
