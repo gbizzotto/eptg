@@ -531,8 +531,9 @@ QString QExifValue::toString() const
         }
         break;
     default:
-        return QString();
+        break;
     }
+    return QString();
 }
 
 /*!

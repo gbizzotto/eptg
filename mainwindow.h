@@ -9,6 +9,7 @@
 #include <memory>
 #include "eptg/project.hpp"
 #include "eptg/synchronized.hpp"
+#include "eptg/FaceLib.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -30,6 +31,14 @@ public:
 	void select_next_file();
 	void select_next_tag();
 	void orient(int next_value[]);
+    QString getCurrentImgFullPath();
+    QSize getCurrentImgSize();
+    bool on_previewClicked(QMouseEvent*, bool double_click);
+
+private:
+    void resizeEvent(QResizeEvent*) override;
+    void identifyFaces(int selected_idx = -1, bool force = false);
+
 protected:
     void showEvent(QShowEvent *ev) override;
     void closeEvent(QCloseEvent *event) override;
@@ -40,7 +49,7 @@ private slots:
     void go_to_first_untagged();
     void preview_pictures(const std::set<QString> & selected_items_text);
     void adjust_ui_for_project();
-	void save(bool force = false, bool save_typed = true);
+    void save(bool force = false, bool save_typed = true);
 
     void on_menuOpenRecent(QAction *action);
 
@@ -96,6 +105,12 @@ private slots:
 
 	void on_menuVertical_Flip_triggered();
 
+    void on_actionTrain_AI_triggered();
+
+    void on_actionIdentify_people_with_AI_triggered();
+
+    void on_facesCheckBox_stateChanged(int arg1);
+
 private:
 	eptg::synchronized<std::unique_ptr<eptg::Project<QString>>> project_s;
     Ui::MainWindow *ui;
@@ -105,5 +120,7 @@ private:
     std::map<QString,int> known_tags;
 	std::unique_ptr<QTimer> autosave_timer;
 	int rotated = 0;
+    FaceLib facelib;
+    std::vector<FaceInfo> faces;
 };
 #endif // MAINWINDOW_H

@@ -11,6 +11,15 @@ win32 {
     LIBS += -lstdc++fs
 }
 
+INCLUDEPATH += /usr/include/opencv4
+
+LIBS += \
+    -lopencv_core \
+    -lopencv_imgproc \
+    -lopencv_imgcodecs \
+    -lopencv_objdetect \
+    -lopencv_face
+
 # The following define makes your compiler emit warnings if you use
 # any Qt feature that has been marked deprecated (the exact warnings
 # depend on your compiler). Please consult the documentation of the
@@ -28,6 +37,7 @@ SOURCES += \
     MyWidgetLineEdit.cpp \
     MyWidgetTable.cpp \
     MyWizardCopyMove.cpp \
+    eptg/FaceLib.cpp \
     eptg/helpers.cpp \
     eptg/in.cpp \
     eptg/json.cpp \
@@ -35,6 +45,7 @@ SOURCES += \
     eptg/string.cpp \
     main.cpp \
     mainwindow.cpp \
+    namedialog.cpp \
     qexifimageheader.cpp
 
 HEADERS += \
@@ -43,6 +54,7 @@ HEADERS += \
     MyWidgetLineEdit.h \
     MyWidgetTable.h \
     MyWizardCopyMove.h \
+    eptg/FaceLib.h \
     eptg/constants.hpp \
     eptg/copy_move_data.hpp \
     eptg/fs.hpp \
@@ -54,13 +66,15 @@ HEADERS += \
     eptg/search.hpp \
     eptg/string.hpp \
     eptg/synchronized.hpp \
-    mainwindow.h \ \
+    mainwindow.h \
+    namedialog.h \
     qexifimageheader.h
 
 FORMS += \
     copy_move_wizard.ui \
     find_similar.ui \
     mainwindow.ui \
+    namedialog.ui \
     process.ui
 
 # Default rules for deployment.

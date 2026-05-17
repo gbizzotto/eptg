@@ -171,6 +171,16 @@
               </property>
              </widget>
             </item>
+            <item>
+             <widget class="QCheckBox" name="facesCheckBox">
+              <property name="text">
+               <string>Faces</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
            </layout>
           </item>
           <item>
@@ -189,9 +199,7 @@
             </property>
             <property name="font">
              <font>
-              <family>Arial</family>
               <pointsize>20</pointsize>
-              <weight>50</weight>
               <bold>false</bold>
              </font>
             </property>
@@ -300,7 +308,6 @@
             </property>
             <property name="font">
              <font>
-              <family>Arial</family>
               <pointsize>20</pointsize>
              </font>
             </property>
@@ -345,7 +352,7 @@
      <x>0</x>
      <y>0</y>
      <width>1094</width>
-     <height>22</height>
+     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -369,6 +376,9 @@
     </property>
     <addaction name="menuFindSimilar"/>
     <addaction name="menuProcess"/>
+    <addaction name="separator"/>
+    <addaction name="actionTrain_AI"/>
+    <addaction name="actionIdentify_people_with_AI"/>
    </widget>
    <widget class="QMenu" name="menuEPTG">
     <property name="title">
@@ -498,6 +508,16 @@
   <action name="menuVertical_Flip">
    <property name="text">
     <string>Vertical Flip</string>
+   </property>
+  </action>
+  <action name="actionTrain_AI">
+   <property name="text">
+    <string>Train AI</string>
+   </property>
+  </action>
+  <action name="actionIdentify_people_with_AI">
+   <property name="text">
+    <string>Identify people with AI</string>
    </property>
   </action>
  </widget>

@@ -27,6 +27,7 @@
 #include "MyDialogFindSimilar.h"
 #include "MyDialogProcess.h"
 #include "MyWizardCopyMove.h"
+#include "namedialog.h"
 
 #include "eptg/constants.hpp"
 #include "eptg/helpers.hpp"
@@ -51,7 +52,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tagsEdit   ->installEventFilter(this);
     ui->editTagTags->installEventFilter(this);
     ui->searchEdit ->installEventFilter(this);
-	ui->pathEdit   ->installEventFilter(this);
+    ui->pathEdit   ->installEventFilter(this);
+    ui->fillPreview->installEventFilter(this);
 
     // load settings
     QSettings settings("ttt", "eptg");
@@ -77,6 +79,10 @@ MainWindow::MainWindow(QWidget *parent)
 	autosave_timer->start(10000); //time specified in ms
 
     connect(ui->menuOpenRecent, SIGNAL(triggered(QAction*)), this, SLOT(on_menuOpenRecent(QAction*)));
+
+    facelib.initialize(
+        "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
+        "face_database");
 }
 
 MainWindow::~MainWindow()
@@ -106,12 +112,77 @@ void MainWindow::save(bool force, bool save_typed)
 		if ( ! project->save(force))
 			QMessageBox::critical(this, "Save error", "Project was not written to disk");
 	}
+    facelib.save();
 }
 
 void MainWindow::on_menuOpenRecent(QAction *action)
 {
     QString path = action->data().toString();
     open(path);
+}
+
+QString MainWindow::getCurrentImgFullPath()
+{
+    auto & project = *project_s.GetSynchronizedProxy();
+    if ( ! project)
+        return "";
+    return path::append(project->get_path(), ui->pathEdit->text());
+}
+
+QSize MainWindow::getCurrentImgSize()
+{
+    QImage image(getCurrentImgFullPath());
+    return image.size();
+}
+
+bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
+{
+    if (ui->facesCheckBox->checkState() == Qt::CheckState::Unchecked)
+        return false; // we don't do faces here
+
+    auto full_path = getCurrentImgFullPath().toStdString();
+
+    QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
+
+    auto scaledimgx = mouseEvent->x() - (ui->fillPreview->width() - pix.width()) / 2;
+    auto scaledimgy = mouseEvent->y() - (ui->fillPreview->height() - pix.height()) / 2;
+
+    auto fit_size = pix.size();
+    auto orig_size = getCurrentImgSize();
+
+    auto imgx = scaledimgx * orig_size.width () / fit_size.width() ;
+    auto imgy = scaledimgy * orig_size.height() / fit_size.height();
+
+    auto clicked_face_idx = this->facelib.findFace(faces, imgx, imgy);
+    if (clicked_face_idx == -1)
+        return false;
+
+    if (mouseEvent->button() == Qt::RightButton)
+    {
+        facelib.ignoreFace(full_path, this->faces, clicked_face_idx);
+        this->faces[clicked_face_idx].ignored = true;
+        identifyFaces();
+    }
+    else
+    {
+        if (dbl_click)
+        {
+            NameDialog * d = new NameDialog(this);
+            d->setname(QString::fromStdString(faces[clicked_face_idx].name));
+            if (d->exec() == QDialog::Accepted)
+            {
+                auto name = d->name().trimmed();
+                if (name.length() != 0)
+                {
+                    facelib.markFace(full_path, faces, clicked_face_idx, name.toStdString());
+                    this->faces[clicked_face_idx].name = name.toStdString();
+                }
+            }
+        }
+        identifyFaces(clicked_face_idx);
+    }
+
+    return true;
 }
 
 bool MainWindow::eventFilter(QObject* obj, QEvent *event)
@@ -124,6 +195,16 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
             ui->tabWidget->setCurrentIndex(0);
             ui->searchEdit->setFocus();
         }
+    }
+
+    if (obj == ui->fillPreview && event->type() == QEvent::MouseButtonRelease)
+    {
+        // preview has been clicked, supposedly to mark a face with a name
+        return on_previewClicked(static_cast<QMouseEvent*>(event), false);
+    }
+    else if (event->type() == QEvent::MouseButtonDblClick)
+    {
+        return on_previewClicked(static_cast<QMouseEvent*>(event), true);
     }
 
     if (obj == ui->pathEdit)
@@ -219,6 +300,11 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
     }
 
     return QMainWindow::eventFilter(obj, event);
+}
+
+void MainWindow::resizeEvent(QResizeEvent*)
+{
+    on_fillList_itemSelectionChanged();
 }
 
 void MainWindow::on_menuOpenFolder_triggered()
@@ -580,13 +666,36 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 		QSize orig_size;
 		QPixmap image;
 		int file_size;
-		std::tie(image, orig_size, file_size) = make_image(path::append(project->get_path(), *selected_items_text.begin()), ui->fillPreview->size(), ui->fillPreview->size());
+        auto full_path = path::append(project->get_path(), *selected_items_text.begin());
+        std::tie(image, orig_size, file_size) = make_image(full_path, ui->fillPreview->size(), ui->fillPreview->size());
 
 		ui->fillPreview->setPixmap(image);
 		if (orig_size.isValid())
 			statusSizeLabel->setText(QString::number(image.width()) + " x " + QString::number(image.height()) + " px");
 		else
 			statusSizeLabel->setText(QString::number(file_size) + " bytes");
+
+        if (ui->facesCheckBox->checkState() == Qt::CheckState::Checked)
+        {
+            faces = facelib.detectFaces(full_path.toStdString());
+            identifyFaces();
+        }
+
+        QFile file(full_path);
+        if (file.open(QIODevice::ReadOnly))
+        {
+            QExifImageHeader exif_header;
+            if (exif_header.loadFromJpeg(&file))
+            {
+                if (exif_header.contains(QExifImageHeader::ExifExtendedTag::DateTimeOriginal))
+                {
+                    // Has Exif AND Datetime
+                    QExifValue datetime = exif_header.value(QExifImageHeader::ExifExtendedTag::DateTimeOriginal);
+                    int a=0;
+                }
+            }
+            file.close();
+        }
     }
 	else if (selected_items_text.size() > 64 && ui->previewCheckBox->checkState() == Qt::CheckState::PartiallyChecked)
 	{
@@ -942,3 +1051,98 @@ void MainWindow::on_menuVertical_Flip_triggered()
 	int next_value[] = {4, 4, 3, 2, 1, 6, 5, 8, 7};
 	orient(next_value);
 }
+
+void MainWindow::on_actionTrain_AI_triggered()
+{
+    auto & project = *project_s.GetSynchronizedProxy();
+    if ( ! project)
+        return;
+
+    ui->fillList->clear();
+
+    std::vector<QString> rel_paths;
+    try {
+        rel_paths = project->search(SearchNode(ui->searchEdit->text()));
+    } catch (std::runtime_error & err) {
+        QToolTip::showText(ui->searchEdit->mapToGlobal(QPoint(0, 0)), err.what(), nullptr, QRect(), 3000);
+    }
+
+    for (const auto & rel_path : rel_paths)
+    {
+        std::set<const eptg::taggable<QString>*> selected_files = project->get_files().get_all_by_name(std::set<QString>{rel_path});
+        QStringList tags = accumulate(project->get_common_tags(selected_files), QStringList());
+        QStringList people_tags;
+        for (const auto & t : tags)
+        {
+            if ( ! project->get_tags().has(t))
+                continue;
+            if ( ! project->get_tags().find(t)->has_tag("who"))
+                continue;
+            people_tags.append(t);
+        }
+        for (const auto & t : people_tags)
+        {
+
+        }
+    }
+}
+
+void MainWindow::on_actionIdentify_people_with_AI_triggered()
+{
+    identifyFaces(-1, true);
+}
+
+void MainWindow::identifyFaces(int selected_idx, bool force)
+{
+    QString full_path = this->getCurrentImgFullPath();
+    if (full_path == "")
+        return;
+
+    QSize orig_size;
+    QPixmap pix;
+    int file_size;
+    std::tie(pix, orig_size, file_size) = make_image(full_path, ui->fillPreview->size(), ui->fillPreview->size());
+
+    auto fit_size = pix.size();
+    auto scale = std::min(fit_size.width()*1.0 / orig_size.width(), fit_size.height()*1.0 / orig_size.height());
+    scale = std::min(1.0, scale);
+
+    QPainter paint(&pix);
+    pix.fill(Qt::transparent);
+    auto f = paint.font();
+    f.setPointSize(f.pointSize() * 3);
+    paint.setFont(f);
+
+    for (int i = 0;
+         i < (int)faces.size();
+         ++i)
+    {
+        if ( ! force && faces[i].ignored)
+            continue;
+
+        if (force)
+            faces[i].ignored = false;
+
+        paint.setPen(Qt::red); // Set line color
+        if (i == selected_idx)
+            paint.setPen(Qt::blue); // Set line color
+        else if (faces[i].matches_ai)
+            paint.setPen(Qt::green);
+        else if (faces[i].is_set)
+            paint.setPen(Qt::yellow);
+
+        paint.drawText((int)faces[i].rect.x*scale, (int)faces[i].rect.y*scale, QString::fromStdString(faces[i].name));
+        paint.drawRect(     faces[i].rect.x*scale,      faces[i].rect.y*scale, faces[i].rect.w*scale, faces[i].rect.h*scale); // x, y, width, height
+    }
+
+    // paint the image over the pix map here.
+    paint.end();
+    ui->fillPreview->setPixmap(pix);
+}
+
+
+void MainWindow::on_facesCheckBox_stateChanged(int arg1)
+{
+    on_fillList_itemSelectionChanged();
+}
+
