@@ -30,8 +30,9 @@ public:
     void add_open_recent(const QString & pathName);
 	void select_next_file();
 	void select_next_tag();
-	void orient(int next_value[]);
+    void orient(int next_value[]);
     QString getCurrentImgFullPath();
+    QString getCurrentImgRelPath();
     QSize getCurrentImgSize();
     bool on_previewClicked(QMouseEvent*, bool double_click);
 

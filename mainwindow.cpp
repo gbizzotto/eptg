@@ -79,10 +79,6 @@ MainWindow::MainWindow(QWidget *parent)
 	autosave_timer->start(10000); //time specified in ms
 
     connect(ui->menuOpenRecent, SIGNAL(triggered(QAction*)), this, SLOT(on_menuOpenRecent(QAction*)));
-
-    facelib.initialize(
-        "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
-        "face_database");
 }
 
 MainWindow::~MainWindow()
@@ -128,6 +124,10 @@ QString MainWindow::getCurrentImgFullPath()
         return "";
     return path::append(project->get_path(), ui->pathEdit->text());
 }
+QString MainWindow::getCurrentImgRelPath()
+{
+    return ui->pathEdit->text();
+}
 
 QSize MainWindow::getCurrentImgSize()
 {
@@ -140,7 +140,7 @@ bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
     if (ui->facesCheckBox->checkState() == Qt::CheckState::Unchecked)
         return false; // we don't do faces here
 
-    auto full_path = getCurrentImgFullPath().toStdString();
+    auto rel_path = getCurrentImgRelPath().toStdString();
 
     QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
 
@@ -159,7 +159,7 @@ bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
 
     if (mouseEvent->button() == Qt::RightButton)
     {
-        facelib.ignoreFace(full_path, this->faces, clicked_face_idx);
+        facelib.ignoreFace(rel_path, this->faces, clicked_face_idx);
         this->faces[clicked_face_idx].ignored = true;
         identifyFaces();
     }
@@ -174,7 +174,7 @@ bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
                 auto name = d->name().trimmed();
                 if (name.length() != 0)
                 {
-                    facelib.markFace(full_path, faces, clicked_face_idx, name.toStdString());
+                    facelib.markFace(rel_path, faces, clicked_face_idx, name.toStdString());
                     this->faces[clicked_face_idx].name = name.toStdString();
                 }
             }
@@ -260,7 +260,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
                         auto name = d->name().trimmed();
                         if (name.length() != 0)
                         {
-                            auto full_path = getCurrentImgFullPath().toStdString();
+                            auto rel_path = getCurrentImgRelPath().toStdString();
 
                             QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
                             auto fit_size = pix.size();
@@ -277,8 +277,8 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
                                 std::min(mouse_drag_cur_pos.y(), mouse_drag_start_pos.y()),
                                 std::abs(mouse_drag_cur_pos.x() - mouse_drag_start_pos.x()),
                                 std::abs(mouse_drag_cur_pos.y() - mouse_drag_start_pos.y())};
-                            facelib.markFace(full_path, rect, name.toStdString());
-                            faces = facelib.detectFaces(full_path);
+                            facelib.markFace(rel_path, rect, name.toStdString());
+                            faces = facelib.detectFaces(rel_path);
                         }
                     }
                     identifyFaces();
@@ -413,6 +413,10 @@ void MainWindow::open(const QString & pathName)
 		new_project->sweep();
 		auto & project = *project_s.GetSynchronizedProxy();
 		project.swap(new_project);
+
+        facelib.initialize(
+            "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
+            pathName.toStdString());
 	}
 	catch (std::runtime_error & err)
 	{
@@ -753,7 +757,8 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 		QSize orig_size;
 		QPixmap image;
 		int file_size;
-        auto full_path = path::append(project->get_path(), *selected_items_text.begin());
+        auto filename = *selected_items_text.begin();
+        auto full_path = path::append(project->get_path(), filename);
         std::tie(image, orig_size, file_size) = make_image(full_path, ui->fillPreview->size(), ui->fillPreview->size());
 
 		ui->fillPreview->setPixmap(image);
@@ -764,7 +769,7 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 
         if (ui->facesCheckBox->checkState() == Qt::CheckState::Checked)
         {
-            faces = facelib.detectFaces(full_path.toStdString());
+            faces = facelib.detectFaces(filename.toStdString());
             identifyFaces();
         }
     }

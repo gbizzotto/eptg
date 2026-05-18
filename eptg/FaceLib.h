@@ -77,9 +77,10 @@ public:
         int y);
 
     bool save();
-    bool load();
 
 private:
+
+    std::string path;
 
     cv::CascadeClassifier detector;
 
@@ -104,6 +105,8 @@ private:
     > cachedAddedFaces;
 
 private:
+
+    bool load();
 
     cv::Mat preprocessFace(
         const cv::Mat& gray,

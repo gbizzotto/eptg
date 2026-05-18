@@ -17,11 +17,12 @@ FaceLib::FaceLib()
 
 bool FaceLib::initialize(
     const std::string& cascadeFile,
-    const std::string& dataDir)
+    const std::string& path)
 {
-    databaseDir = dataDir;
+    this->path = path;
+    this->databaseDir = path + "/face_database/";
 
-    fs::create_directories(dataDir);
+    fs::create_directories(databaseDir);
 
     if (!detector.load(cascadeFile))
     {
@@ -54,7 +55,7 @@ FaceLib::detectFaces(
     const std::string filename)
 {
     cv::Mat img =
-        cv::imread(filename);
+        cv::imread(path + "/" + filename);
 
     std::vector<FaceInfo> result;
 
@@ -211,7 +212,7 @@ bool FaceLib::markFace(
         label = it->second;
     }
 
-    cv::Mat img = cv::imread(filename);
+    cv::Mat img = cv::imread(path + "/" + filename);
 
     if (img.empty())
         return false;
@@ -267,7 +268,7 @@ bool FaceLib::markFace(
     const std::string& name)
 {
     cv::Mat img =
-        cv::imread(filename);
+        cv::imread(path + "/" + filename);
 
     if (img.empty())
     {
