@@ -57,6 +57,11 @@ public:
         int faceIndex,
         const std::string& name);
 
+    bool markFace(
+        const std::string& filename,
+        const FaceRect& rect,
+        const std::string& name);
+
     bool ignoreFace(
         const std::string filename,
         std::vector<FaceInfo> & faces,
@@ -93,6 +98,11 @@ private:
         std::vector<CachedFace>
     > cachedFaces;
 
+    std::map<
+        std::string,
+        std::vector<FaceInfo>
+    > cachedAddedFaces;
+
 private:
 
     cv::Mat preprocessFace(
@@ -106,6 +116,8 @@ private:
 
     bool saveCache();
     bool loadCache();
+    bool saveCacheAdded();
+    bool loadCacheAdded();
 
     bool saveRecognizer();
     bool loadRecognizer();

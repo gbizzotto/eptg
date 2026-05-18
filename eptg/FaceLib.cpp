@@ -166,6 +166,19 @@ FaceLib::detectFaces(
         }
     }
 
+    auto cacheAddedIt =
+        cachedAddedFaces.find(filename);
+
+    if (cacheAddedIt !=
+        cachedAddedFaces.end())
+    {
+        for (const auto& cached :
+             cacheAddedIt->second)
+        {
+            result.push_back(cached);
+        }
+    }
+
     return result;
 }
 
@@ -245,6 +258,88 @@ bool FaceLib::markFace(
 
     cachedFaces[filename]
         .push_back(c);
+
+    return true;
+}
+bool FaceLib::markFace(
+    const std::string& filename,
+    const FaceRect& rect,
+    const std::string& name)
+{
+    cv::Mat img =
+        cv::imread(filename);
+
+    if (img.empty())
+    {
+        return false;
+    }
+
+    cv::Mat gray;
+
+    cv::cvtColor(
+        img,
+        gray,
+        cv::COLOR_BGR2GRAY);
+
+    cv::Rect r(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h);
+
+    if (r.x < 0 ||
+        r.y < 0 ||
+        r.x + r.width > gray.cols ||
+        r.y + r.height > gray.rows)
+    {
+        return false;
+    }
+
+    int label;
+
+    auto it =
+        nameToLabel.find(name);
+
+    if (it == nameToLabel.end())
+    {
+        label =
+            nextLabel++;
+
+        nameToLabel[name] =
+            label;
+
+        labelToName[label] =
+            name;
+    }
+    else
+    {
+        label =
+            it->second;
+    }
+
+    cv::Mat face =
+        preprocessFace(
+            gray,
+            r);
+
+    std::vector<cv::Mat> images;
+    std::vector<int> labels;
+
+    images.push_back(face);
+    labels.push_back(label);
+
+    recognizer->update(
+        images,
+        labels);
+
+    FaceInfo cached;
+
+    cached.confidence = 1.0;
+    cached.ignored = false;
+    cached.is_set = 1;
+    cached.name = name;
+    cached.rect = rect;
+    cachedAddedFaces[filename].push_back(cached);
 
     return true;
 }
@@ -498,6 +593,40 @@ bool FaceLib::saveCache()
 
     return true;
 }
+bool FaceLib::saveCacheAdded()
+{
+    std::ofstream out(
+        databaseDir +
+        "/cache_added.txt");
+
+    if (!out.is_open())
+    {
+        return false;
+    }
+
+    for (const auto& pair :
+         cachedAddedFaces)
+    {
+        out
+            << "FILE "
+            << pair.first
+            << std::endl;
+
+        for (const auto& f :
+             pair.second)
+        {
+            out
+                << f.rect.x << " "
+                << f.rect.y << " "
+                << f.rect.w << " "
+                << f.rect.h << " "
+                << f.name << " "
+                << std::endl;
+        }
+    }
+
+    return true;
+}
 
 bool FaceLib::loadCache()
 {
@@ -542,12 +671,61 @@ bool FaceLib::loadCache()
 
     return true;
 }
+bool FaceLib::loadCacheAdded()
+{
+    cachedAddedFaces.clear();
+
+    std::ifstream in(
+        databaseDir +
+        "/cache_added.txt");
+
+    if (!in.is_open())
+    {
+        return true;
+    }
+
+    std::string line;
+
+    std::string currentFile;
+
+    while (std::getline(in, line))
+    {
+        if (line.rfind("FILE ",0)==0)
+        {
+            currentFile =
+                line.substr(5);
+
+            continue;
+        }
+
+        std::stringstream ss(line);
+
+        FaceInfo c;
+
+        ss
+            >> c.rect.x
+            >> c.rect.y
+            >> c.rect.w
+            >> c.rect.h
+            >> c.name;
+
+        c.ignored = false;
+        c.is_set = true;
+        c.confidence = 1.0;
+        c.matches_ai = false;
+
+        cachedAddedFaces[currentFile].push_back(c);
+    }
+
+    return true;
+}
 
 bool FaceLib::save()
 {
     return
         saveRecognizer() &&
         saveLabels() &&
+        saveCacheAdded() &&
         saveCache();
 }
 
@@ -556,5 +734,6 @@ bool FaceLib::load()
     return
         loadRecognizer() &&
         loadLabels() &&
-        loadCache();
+        loadCache() &&
+        loadCacheAdded();
 }

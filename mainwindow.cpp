@@ -185,6 +185,11 @@ bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
     return true;
 }
 
+int distance(QPoint a)
+{
+    return sqrt(a.x()*a.x() + a.y()*a.y());
+}
+
 bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 {
     if (event->type() == QEvent::KeyPress)
@@ -197,14 +202,96 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
         }
     }
 
-    if (obj == ui->fillPreview && event->type() == QEvent::MouseButtonRelease)
+    if (obj == ui->fillPreview)
     {
-        // preview has been clicked, supposedly to mark a face with a name
-        return on_previewClicked(static_cast<QMouseEvent*>(event), false);
-    }
-    else if (event->type() == QEvent::MouseButtonDblClick)
-    {
-        return on_previewClicked(static_cast<QMouseEvent*>(event), true);
+        if (ui->facesCheckBox->checkState() == Qt::CheckState::Unchecked)
+            return false; // we don't do faces here
+
+        if (event->type() == QEvent::MouseButtonPress)
+        {
+            QMouseEvent * mouse_event = static_cast<QMouseEvent*>(event);
+            if (mouse_event->button() == Qt::LeftButton)
+            {
+                QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
+                auto scaledimgx = mouse_event->x() - (ui->fillPreview->width() - pix.width()) / 2;
+                auto scaledimgy = mouse_event->y() - (ui->fillPreview->height() - pix.height()) / 2;
+                mouse_drag_start_pos.setX(scaledimgx);
+                mouse_drag_start_pos.setY(scaledimgy);
+                mouse_drag_cur_pos = mouse_drag_start_pos;
+                mouse_dragged = true;
+            } else {
+                mouse_dragged = false;
+            }
+        }
+        if (event->type() == QEvent::MouseMove)
+        {
+            QMouseEvent * mouse_event = static_cast<QMouseEvent*>(event);
+            if (mouse_dragged)
+            {
+                auto drag_distance = distance(mouse_event->pos() - mouse_drag_start_pos);
+                if (drag_distance > QApplication::startDragDistance())
+                {
+                    QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
+                    auto scaledimgx = mouse_event->x() - (ui->fillPreview->width() - pix.width()) / 2;
+                    auto scaledimgy = mouse_event->y() - (ui->fillPreview->height() - pix.height()) / 2;
+                    mouse_drag_cur_pos.setX(scaledimgx);
+                    mouse_drag_cur_pos.setY(scaledimgy);
+                    identifyFaces();
+                }
+                else
+                {
+                    mouse_drag_cur_pos = mouse_drag_start_pos;
+                }
+            }
+        }
+        else if (event->type() == QEvent::MouseButtonRelease)
+        {
+            if (mouse_dragged)
+            {
+                mouse_dragged = false;
+                QMouseEvent * mouse_event = static_cast<QMouseEvent*>(event);
+                auto drag_distance = distance(mouse_drag_cur_pos - mouse_drag_start_pos);
+                if (drag_distance > QApplication::startDragDistance())
+                {
+                    NameDialog * d = new NameDialog(this);
+                    d->setname("");
+                    if (d->exec() == QDialog::Accepted)
+                    {
+                        auto name = d->name().trimmed();
+                        if (name.length() != 0)
+                        {
+                            auto full_path = getCurrentImgFullPath().toStdString();
+
+                            QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
+                            auto fit_size = pix.size();
+                            auto orig_size = getCurrentImgSize();
+
+                            // transform scaled img coords to real/file image coords
+                            mouse_drag_start_pos.setX(mouse_drag_start_pos.x() * orig_size.width () / fit_size.width());
+                            mouse_drag_start_pos.setY(mouse_drag_start_pos.y() * orig_size.height () / fit_size.height());
+                            mouse_drag_cur_pos.setX(mouse_drag_cur_pos.x() * orig_size.width () / fit_size.width());
+                            mouse_drag_cur_pos.setY(mouse_drag_cur_pos.y() * orig_size.height () / fit_size.height());
+
+                            FaceRect rect{
+                                std::min(mouse_drag_cur_pos.x(), mouse_drag_start_pos.x()),
+                                std::min(mouse_drag_cur_pos.y(), mouse_drag_start_pos.y()),
+                                std::abs(mouse_drag_cur_pos.x() - mouse_drag_start_pos.x()),
+                                std::abs(mouse_drag_cur_pos.y() - mouse_drag_start_pos.y())};
+                            facelib.markFace(full_path, rect, name.toStdString());
+                            faces = facelib.detectFaces(full_path);
+                        }
+                    }
+                    identifyFaces();
+                }
+            }
+
+            // preview has been clicked, supposedly to mark a face with a name
+            return on_previewClicked(static_cast<QMouseEvent*>(event), false);
+        }
+        else if (event->type() == QEvent::MouseButtonDblClick)
+        {
+            return on_previewClicked(static_cast<QMouseEvent*>(event), true);
+        }
     }
 
     if (obj == ui->pathEdit)
@@ -1141,6 +1228,12 @@ void MainWindow::identifyFaces(int selected_idx, bool force)
 
         paint.drawText((int)faces[i].rect.x*scale, (int)faces[i].rect.y*scale, QString::fromStdString(faces[i].name));
         paint.drawRect(     faces[i].rect.x*scale,      faces[i].rect.y*scale, faces[i].rect.w*scale, faces[i].rect.h*scale); // x, y, width, height
+    }
+
+    if (mouse_dragged && mouse_drag_start_pos != mouse_drag_cur_pos)
+    {
+        paint.setPen(Qt::white);
+        paint.drawRect(mouse_drag_start_pos.x(),mouse_drag_start_pos.y(), mouse_drag_cur_pos.x() - mouse_drag_start_pos.x(), mouse_drag_cur_pos.y() - mouse_drag_start_pos.y()); // x, y, width, height
     }
 
     // paint the image over the pix map here.

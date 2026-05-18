@@ -122,5 +122,8 @@ private:
 	int rotated = 0;
     FaceLib facelib;
     std::vector<FaceInfo> faces;
+    bool mouse_dragged = false;
+    QPoint mouse_drag_start_pos;
+    QPoint mouse_drag_cur_pos;
 };
 #endif // MAINWINDOW_H
