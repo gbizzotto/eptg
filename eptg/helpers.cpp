@@ -92,9 +92,7 @@ std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize 
 			painter.fillRect(image.rect(), Qt::white);
 			painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString(qb).toHtmlEscaped());
 		}
-	}
-	else
-		orig_size = image.size();
+    }
 
 	unsigned int exif_orientation = get_exif_orientation(full_path);
 	if (exif_orientation > 1)
@@ -115,6 +113,7 @@ std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize 
 		}
 		image = pixmap.transformed(rm).toImage();
 	}
+    orig_size = image.size();
 
 	if (   thumb_size.isValid()
 		&& (image.width() > thumb_size.width() || image.height() > thumb_size.height()))

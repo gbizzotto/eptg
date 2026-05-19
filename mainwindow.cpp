@@ -35,6 +35,7 @@
 #include "eptg/string.hpp"
 #include "qexifimageheader.h"
 
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -129,12 +130,6 @@ QString MainWindow::getCurrentImgRelPath()
     return ui->pathEdit->text();
 }
 
-QSize MainWindow::getCurrentImgSize()
-{
-    QImage image(getCurrentImgFullPath());
-    return image.size();
-}
-
 bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
 {
     if (ui->facesCheckBox->checkState() == Qt::CheckState::Unchecked)
@@ -148,7 +143,6 @@ bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
     auto scaledimgy = mouseEvent->y() - (ui->fillPreview->height() - pix.height()) / 2;
 
     auto fit_size = pix.size();
-    auto orig_size = getCurrentImgSize();
 
     auto imgx = scaledimgx * orig_size.width () / fit_size.width() ;
     auto imgy = scaledimgy * orig_size.height() / fit_size.height();
@@ -264,7 +258,6 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 
                             QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
                             auto fit_size = pix.size();
-                            auto orig_size = getCurrentImgSize();
 
                             // transform scaled img coords to real/file image coords
                             mouse_drag_start_pos.setX(mouse_drag_start_pos.x() * orig_size.width () / fit_size.width());
@@ -689,7 +682,7 @@ void MainWindow::save_current_tag_tags()
             }
         });
 
-    refresh_tag_list();
+    //refresh_tag_list();
 }
 void MainWindow::on_editTagTags_returnPressed()
 {
@@ -754,7 +747,6 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 	}
     else if (selected_items_text.size() == 1)
     {
-		QSize orig_size;
 		QPixmap image;
 		int file_size;
         auto filename = *selected_items_text.begin();

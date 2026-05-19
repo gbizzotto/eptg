@@ -33,7 +33,6 @@ public:
     void orient(int next_value[]);
     QString getCurrentImgFullPath();
     QString getCurrentImgRelPath();
-    QSize getCurrentImgSize();
     bool on_previewClicked(QMouseEvent*, bool double_click);
 
 private:
@@ -126,5 +125,6 @@ private:
     bool mouse_dragged = false;
     QPoint mouse_drag_start_pos;
     QPoint mouse_drag_cur_pos;
+    QSize orig_size;
 };
 #endif // MAINWINDOW_H
