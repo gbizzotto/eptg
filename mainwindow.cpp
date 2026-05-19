@@ -58,6 +58,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // load settings
     QSettings settings("ttt", "eptg");
+    ui->facesCheckBox->setCheckState(settings.value("faces", true).toBool()?Qt::CheckState::Checked:Qt::CheckState::Unchecked);
     int recent_count = settings.beginReadArray("recents");
     for(int i=0 ; i<recent_count ; i++)
     {
@@ -1242,5 +1243,8 @@ void MainWindow::identifyFaces(int selected_idx, bool force)
 void MainWindow::on_facesCheckBox_stateChanged(int arg1)
 {
     on_fillList_itemSelectionChanged();
+
+    QSettings settings("ttt", "eptg");
+    settings.setValue("faces", ui->facesCheckBox->checkState() == Qt::CheckState::Checked);
 }
 
