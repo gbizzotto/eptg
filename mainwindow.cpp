@@ -169,8 +169,16 @@ bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
                 auto name = d->name().trimmed();
                 if (name.length() != 0)
                 {
+                    // train NN
                     facelib.markFace(rel_path, faces, clicked_face_idx, name.toStdString());
+                    // update local cache
                     this->faces[clicked_face_idx].name = name.toStdString();
+                    // update tags
+                    auto tags_string = ui->tagsEdit->text();
+                    tags_string += " " + name;
+                    ui->tagsEdit->setText(tags_string);
+                    save_current_file_tags();
+                    on_fillList_itemSelectionChanged();
                 }
             }
         }
