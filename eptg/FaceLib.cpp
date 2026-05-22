@@ -85,10 +85,10 @@ FaceLib::detectFaces(
     {
         FaceInfo f;
 
-        f.rect.x = r.x;
-        f.rect.y = r.y;
-        f.rect.w = r.width;
-        f.rect.h = r.height;
+        f.rect.x = r.x * 1.0 / img.cols;
+        f.rect.y = r.y * 1.0 / img.rows;
+        f.rect.w = r.width  * 1.0 / img.cols;
+        f.rect.h = r.height * 1.0 / img.rows;
 
         f.name = "unknown";
 
@@ -228,7 +228,10 @@ bool FaceLib::markFace(
     cv::Mat face =
         preprocessFace(
             gray,
-            cv::Rect(faces[faceIndex].rect.x, faces[faceIndex].rect.y, faces[faceIndex].rect.w, faces[faceIndex].rect.h));
+            cv::Rect(faces[faceIndex].rect.x * img.cols,
+                     faces[faceIndex].rect.y * img.rows,
+                     faces[faceIndex].rect.w * img.cols,
+                     faces[faceIndex].rect.h * img.rows));
 
     std::vector<cv::Mat> images;
     std::vector<int> labels;
@@ -240,21 +243,15 @@ bool FaceLib::markFace(
         images,
         labels);
 
-    faces[faceIndex].name = name;
-
     const auto& r =
         faces[faceIndex].rect;
 
     CachedFace c;
 
-    c.centerX =
-        r.x + r.w / 2;
-
-    c.centerY =
-        r.y + r.h / 2;
+    c.centerX = r.x + r.w / 2;
+    c.centerY = r.y + r.h / 2;
 
     c.name = name;
-
     c.ignored = false;
 
     cachedFaces[filename]
@@ -283,14 +280,14 @@ bool FaceLib::markFace(
         cv::COLOR_BGR2GRAY);
 
     cv::Rect r(
-        rect.x,
-        rect.y,
-        rect.w,
-        rect.h);
+        rect.x * img.cols,
+        rect.y * img.rows,
+        rect.w * img.cols,
+        rect.h * img.rows);
 
     if (r.x < 0 ||
         r.y < 0 ||
-        r.x + r.width > gray.cols ||
+        r.x + r.width  > gray.cols ||
         r.y + r.height > gray.rows)
     {
         return false;
@@ -340,6 +337,7 @@ bool FaceLib::markFace(
     cached.is_set = 1;
     cached.name = name;
     cached.rect = rect;
+    cached.matches_ai = false;
     cachedAddedFaces[filename].push_back(cached);
 
     return true;
@@ -361,14 +359,10 @@ bool FaceLib::ignoreFace(
 
     CachedFace c;
 
-    c.centerX =
-        r.x + r.w / 2;
-
-    c.centerY =
-        r.y + r.h / 2;
+    c.centerX = r.x + r.w / 2;
+    c.centerY = r.y + r.h / 2;
 
     c.name = "__ignored__";
-
     c.ignored = true;
 
     cachedFaces[filename]
@@ -424,8 +418,8 @@ bool FaceLib::getMarkedFaces(
 
 int FaceLib::findFace(
     const std::vector<FaceInfo>& faces,
-    int x,
-    int y)
+    float x,
+    float y)
 {
     int bestIndex = -1;
 
@@ -453,17 +447,10 @@ int FaceLib::findFace(
             continue;
         }
 
-        double cx =
-            r.x + r.w * 0.5;
-
-        double cy =
-            r.y + r.h * 0.5;
-
-        double dx =
-            cx - x;
-
-        double dy =
-            cy - y;
+        double cx = r.x + r.w * 0.5;
+        double cy = r.y + r.h * 0.5;
+        double dx = cx - x;
+        double dy = cy - y;
 
         double dist =
             dx * dx +
@@ -666,6 +653,17 @@ bool FaceLib::loadCache()
             >> c.name
             >> c.ignored;
 
+        if (c.centerX > 1.0 || c.centerY > 1.0)
+        {
+            cv::Mat img = cv::imread(path + "/" + currentFile);
+            if ( ! img.empty())
+            {
+                // normalize coords to [0-1]
+                c.centerX = c.centerX * 1.0 / img.cols;
+                c.centerY = c.centerY * 1.0 / img.rows;
+            }
+        }
+
         cachedFaces[currentFile]
             .push_back(c);
     }
@@ -709,6 +707,19 @@ bool FaceLib::loadCacheAdded()
             >> c.rect.w
             >> c.rect.h
             >> c.name;
+
+        if (c.rect.x > 1)
+        {
+            // normalize coords to [0-1]
+            cv::Mat img = cv::imread(path + "/" + currentFile);
+            if ( ! img.empty()) // file found and read
+            {
+                c.rect.x = c.rect.x * 1.0 / img.cols;
+                c.rect.y = c.rect.y * 1.0 / img.rows;
+                c.rect.w = c.rect.w * 1.0 / img.cols;
+                c.rect.h = c.rect.h * 1.0 / img.rows;
+            }
+        }
 
         c.ignored = false;
         c.is_set = true;

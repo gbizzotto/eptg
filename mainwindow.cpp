@@ -140,13 +140,14 @@ bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
 
     QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
 
-    auto scaledimgx = mouseEvent->x() - (ui->fillPreview->width() - pix.width()) / 2;
+    auto scaledimgx = mouseEvent->x() - (ui->fillPreview->width () - pix.width ()) / 2;
     auto scaledimgy = mouseEvent->y() - (ui->fillPreview->height() - pix.height()) / 2;
 
     auto fit_size = pix.size();
 
-    auto imgx = scaledimgx * orig_size.width () / fit_size.width() ;
-    auto imgy = scaledimgy * orig_size.height() / fit_size.height();
+    // get 0-1.0 coords
+    auto imgx = scaledimgx * 1.0 / fit_size.width() ;
+    auto imgy = scaledimgy * 1.0 / fit_size.height();
 
     auto clicked_face_idx = this->facelib.findFace(faces, imgx, imgy);
     if (clicked_face_idx == -1)
@@ -172,13 +173,15 @@ bool MainWindow::on_previewClicked(QMouseEvent *mouseEvent, bool dbl_click)
                     // train NN
                     facelib.markFace(rel_path, faces, clicked_face_idx, name.toStdString());
                     // update local cache
+                    this->faces[clicked_face_idx].matches_ai = name.toStdString() == faces[clicked_face_idx].name;
                     this->faces[clicked_face_idx].name = name.toStdString();
                     // update tags
                     auto tags_string = ui->tagsEdit->text();
                     tags_string += " " + name;
                     ui->tagsEdit->setText(tags_string);
                     save_current_file_tags();
-                    on_fillList_itemSelectionChanged();
+                    std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
+                    this->preview_pictures(selected_names);
                 }
             }
         }
@@ -268,17 +271,17 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
                             QPixmap pix = ui->fillPreview->pixmap(Qt::ReturnByValue);
                             auto fit_size = pix.size();
 
-                            // transform scaled img coords to real/file image coords
-                            mouse_drag_start_pos.setX(mouse_drag_start_pos.x() * orig_size.width () / fit_size.width());
-                            mouse_drag_start_pos.setY(mouse_drag_start_pos.y() * orig_size.height () / fit_size.height());
-                            mouse_drag_cur_pos.setX(mouse_drag_cur_pos.x() * orig_size.width () / fit_size.width());
-                            mouse_drag_cur_pos.setY(mouse_drag_cur_pos.y() * orig_size.height () / fit_size.height());
+                            // transform scaled img coords to [0-1.0] image coords
+                            float x1 = (mouse_drag_start_pos.x() *1.0 / fit_size.width());
+                            float y1 = (mouse_drag_start_pos.y() *1.0 / fit_size.height());
+                            float x2 = (mouse_drag_cur_pos  .x() *1.0 / fit_size.width());
+                            float y2 = (mouse_drag_cur_pos  .y() *1.0 / fit_size.height());
 
                             FaceRect rect{
-                                std::min(mouse_drag_cur_pos.x(), mouse_drag_start_pos.x()),
-                                std::min(mouse_drag_cur_pos.y(), mouse_drag_start_pos.y()),
-                                std::abs(mouse_drag_cur_pos.x() - mouse_drag_start_pos.x()),
-                                std::abs(mouse_drag_cur_pos.y() - mouse_drag_start_pos.y())};
+                                std::min(x1, x2),
+                                std::min(y1, y2),
+                                std::abs(x1 - x2),
+                                std::abs(y1 - y2)};
                             facelib.markFace(rel_path, rect, name.toStdString());
                             faces = facelib.detectFaces(rel_path);
                         }
@@ -393,7 +396,8 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 
 void MainWindow::resizeEvent(QResizeEvent*)
 {
-    on_fillList_itemSelectionChanged();
+    std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
+    this->preview_pictures(selected_names);
 }
 
 void MainWindow::on_menuOpenFolder_triggered()
@@ -1155,6 +1159,7 @@ void MainWindow::on_menuVertical_Flip_triggered()
 
 void MainWindow::on_actionTrain_AI_triggered()
 {
+/*
     auto & project = *project_s.GetSynchronizedProxy();
     if ( ! project)
         return;
@@ -1186,6 +1191,7 @@ void MainWindow::on_actionTrain_AI_triggered()
 
         }
     }
+*/
 }
 
 void MainWindow::on_actionIdentify_people_with_AI_triggered()
@@ -1205,11 +1211,11 @@ void MainWindow::identifyFaces(int selected_idx, bool force)
     std::tie(pix, orig_size, file_size) = make_image(full_path, ui->fillPreview->size(), ui->fillPreview->size());
 
     auto fit_size = pix.size();
-    auto scale = std::min(fit_size.width()*1.0 / orig_size.width(), fit_size.height()*1.0 / orig_size.height());
-    scale = std::min(1.0, scale);
+    auto scalex = fit_size.width ();
+    auto scaley = fit_size.height();
 
     QPainter paint(&pix);
-    pix.fill(Qt::transparent);
+    //pix.fill(Qt::transparent);
     auto f = paint.font();
     f.setPointSize(f.pointSize() * 3);
     paint.setFont(f);
@@ -1225,15 +1231,15 @@ void MainWindow::identifyFaces(int selected_idx, bool force)
             faces[i].ignored = false;
 
         paint.setPen(Qt::red); // Set line color
-        if (i == selected_idx)
-            paint.setPen(Qt::blue); // Set line color
-        else if (faces[i].matches_ai)
+        if (faces[i].matches_ai)
             paint.setPen(Qt::green);
+        else if (i == selected_idx)
+            paint.setPen(Qt::blue);
         else if (faces[i].is_set)
             paint.setPen(Qt::yellow);
 
-        paint.drawText((int)faces[i].rect.x*scale, (int)faces[i].rect.y*scale, QString::fromStdString(faces[i].name));
-        paint.drawRect(     faces[i].rect.x*scale,      faces[i].rect.y*scale, faces[i].rect.w*scale, faces[i].rect.h*scale); // x, y, width, height
+        paint.drawText((int)(faces[i].rect.x*scalex), (int)(faces[i].rect.y*scaley), QString::fromStdString(faces[i].name));
+        paint.drawRect(      faces[i].rect.x*scalex ,       faces[i].rect.y*scaley , faces[i].rect.w*scalex,faces[i].rect.h*scaley); // x, y, width, height
     }
 
     if (mouse_dragged && mouse_drag_start_pos != mouse_drag_cur_pos)
@@ -1248,9 +1254,10 @@ void MainWindow::identifyFaces(int selected_idx, bool force)
 }
 
 
-void MainWindow::on_facesCheckBox_stateChanged(int arg1)
+void MainWindow::on_facesCheckBox_stateChanged(int)
 {
-    on_fillList_itemSelectionChanged();
+    std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
+    this->preview_pictures(selected_names);
 
     QSettings settings("ttt", "eptg");
     settings.setValue("faces", ui->facesCheckBox->checkState() == Qt::CheckState::Checked);

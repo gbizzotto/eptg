@@ -9,16 +9,16 @@
 
 struct FaceRect
 {
-    int x;
-    int y;
-    int w;
-    int h;
+    float x;
+    float y;
+    float w;
+    float h;
 };
 
 struct CachedFace
 {
-    int centerX;
-    int centerY;
+    float centerX;
+    float centerY;
 
     std::string name;
 
@@ -73,8 +73,8 @@ public:
 
     int findFace(
         const std::vector<FaceInfo>& faces,
-        int x,
-        int y);
+        float x,
+        float y);
 
     bool save();
 
