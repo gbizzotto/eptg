@@ -253,5 +253,6 @@ void erase_if(std::map<K, T, C, A>& c, Predicate pred) {
 } // namespace
 
 QImage extractMiddleFrame(const QString &videoFile);
+QImage renderPdfPage(const QString& pdfPath, int pageNumber, double scale = 1.0);
 
 #endif // HELPERS_HPP

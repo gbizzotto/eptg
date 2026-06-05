@@ -6,6 +6,7 @@ NameDialog::NameDialog(QWidget *parent) :
     ui(new Ui::NameDialog)
 {
     ui->setupUi(this);
+    setWindowTitle("Put a name to a face");
 }
 
 NameDialog::~NameDialog()

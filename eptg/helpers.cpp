@@ -1,5 +1,4 @@
 
-#include <string>
 #include <cmath>
 
 #include <QDir>
@@ -16,6 +15,9 @@
 #include <QTimer>
 #include <QImage>
 #include <QUrl>
+
+#include <QPdfDocument>
+#include <QImage>
 
 #include "qexifimageheader.h"
 #include "eptg/helpers.hpp"
@@ -93,12 +95,20 @@ std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize 
     QMimeDatabase db;
     QString mime_type = db.mimeTypeForFile(full_path, QMimeDatabase::MatchContent).name().toLower();
 
-    QImage image(full_path);
+    QImage image;
 
-    if (image.isNull() && mime_type.startsWith("video/"))
+    if (mime_type.startsWith("video/"))
     {
         // load middle frame
         image = extractMiddleFrame(full_path);
+    }
+    else if(mime_type.startsWith("application/pdf"))
+    {
+        image = renderPdfPage(full_path, 0, 3.0);
+    }
+    else
+    {
+        image = QImage(full_path);
     }
 
     if (image.isNull())
@@ -310,3 +320,24 @@ QImage extractMiddleFrame(const QString &videoFile)
     return QImage(output);
 }
 */
+
+QImage renderPdfPage(const QString& pdfPath, int pageNumber, double scale)
+{
+    QPdfDocument doc;
+
+    doc.load(pdfPath);
+
+    if (doc.status() != QPdfDocument::Status::Ready)
+        return {};
+
+    if (pageNumber < 0 || pageNumber >= doc.pageCount())
+        return {};
+
+    QSizeF pageSize = doc.pagePointSize(pageNumber);
+    QSize imageSize = (pageSize * scale).toSize();
+
+    //QImage image(imageSize, QImage::Format_ARGB32);
+    //image.fill(Qt::white);
+
+    return doc.render(pageNumber, imageSize);
+}

@@ -604,7 +604,7 @@ public:
 		// sweep directory
 		if ( ! eptg::fs::exists(eptg::str::to<std::string>(path)))
 			return;
-        for (const STR & rel_path : path::sweep(path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pbm", ".pgm", ".ppm", ".xbm", ".xpm", ".txt", ".mp4", ".avi", ".mpg"}))
+        for (const STR & rel_path : path::sweep(path, std::set<STR>{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pbm", ".pgm", ".ppm", ".xbm", ".xpm", ".txt", ".mp4", ".avi", ".mpg", ".pdf"}))
         {
             STR hash_buffer = checksum_4k(path::append(path, rel_path));
 			const File<STR> * f = files.find(rel_path);
