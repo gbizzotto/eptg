@@ -113,6 +113,8 @@ private slots:
 
     void on_facesCheckBox_stateChanged(int arg1);
 
+    void on_splitter_splitterMoved(int pos, int index);
+
 private:
 	eptg::synchronized<std::unique_ptr<eptg::Project<QString>>> project_s;
     Ui::MainWindow *ui;
@@ -129,5 +131,6 @@ private:
     QPoint mouse_drag_cur_pos;
     QSize orig_size;
     QMimeDatabase mime_db;
+    int splitter_pos = 300;
 };
 #endif // MAINWINDOW_H

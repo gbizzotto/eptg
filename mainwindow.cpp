@@ -58,6 +58,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // load settings
     QSettings settings("ttt", "eptg");
+    this->splitter_pos = settings.value("splitter_pos", 300).toInt();
     ui->facesCheckBox->setCheckState(settings.value("faces", true).toBool()?Qt::CheckState::Checked:Qt::CheckState::Unchecked);
     int recent_count = settings.beginReadArray("recents");
     for(int i=0 ; i<recent_count ; i++)
@@ -91,6 +92,7 @@ void MainWindow::showEvent(QShowEvent *)
 {
     if (ui->menuOpenRecent->actions().size() > 0)
         this->open(ui->menuOpenRecent->actions()[0]->text());
+    ui->splitter->setSizes({this->splitter_pos, this->ui->splitter->width() - this->splitter_pos});
 }
 void MainWindow::closeEvent(QCloseEvent *)
 {
@@ -396,6 +398,8 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 
 void MainWindow::resizeEvent(QResizeEvent*)
 {
+    ui->splitter->setSizes({splitter_pos, ui->splitter->width()-splitter_pos});
+
     std::set<QString> selected_names = names_from_list(ui->fillList->selectionModel()->selectedIndexes());
     this->preview_pictures(selected_names);
 }
@@ -1262,5 +1266,14 @@ void MainWindow::on_facesCheckBox_stateChanged(int)
 
     QSettings settings("ttt", "eptg");
     settings.setValue("faces", ui->facesCheckBox->checkState() == Qt::CheckState::Checked);
+}
+
+
+void MainWindow::on_splitter_splitterMoved(int pos, int index)
+{
+    this->splitter_pos = pos;
+
+    QSettings settings("ttt", "eptg");
+    settings.setValue("splitter_pos", this->splitter_pos);
 }
 
