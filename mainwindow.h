@@ -6,6 +6,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QDialog>
+#include <QMimeDatabase>
+#include <QMimeType>
 #include <memory>
 #include "eptg/project.hpp"
 #include "eptg/synchronized.hpp"
@@ -126,5 +128,6 @@ private:
     QPoint mouse_drag_start_pos;
     QPoint mouse_drag_cur_pos;
     QSize orig_size;
+    QMimeDatabase mime_db;
 };
 #endif // MAINWINDOW_H

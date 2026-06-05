@@ -1,5 +1,6 @@
-QT       += core gui
+QT       += core gui widgets multimedia multimediawidgets
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+greaterThan(QT_MAJOR_VERSION, 5): QT += core5compat
 
 QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
 

@@ -6,6 +6,16 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QSize>
+#include <QMimeDatabase>
+#include <QMatrix4x4>
+
+#include <QMediaPlayer>
+#include <QVideoSink>
+#include <QVideoFrame>
+#include <QEventLoop>
+#include <QTimer>
+#include <QImage>
+#include <QUrl>
 
 #include "qexifimageheader.h"
 #include "eptg/helpers.hpp"
@@ -76,22 +86,33 @@ unsigned int get_exif_orientation(const QString & full_path)
 
 std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize & initial_size, const QSize & thumb_size)
 {
-	QSize orig_size;
-	QImage image(full_path);
-	QFile file(full_path);
-	int file_size = (int)file.size();
-	if (image.isNull())
-	{
-		// show text
-		if (file.open(QIODevice::ReadOnly | QIODevice::Text))
-		{
-			auto qb = file.read(1024);
-			image = QImage(initial_size, QImage::Format_ARGB32_Premultiplied);
-			QPainter painter(&image);
-			painter.setFont(QFont("Courier New", 20));
-			painter.fillRect(image.rect(), Qt::white);
-			painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString(qb).toHtmlEscaped());
-		}
+    QSize orig_size;
+    QFile file(full_path);
+    int file_size = (int)file.size();
+
+    QMimeDatabase db;
+    QString mime_type = db.mimeTypeForFile(full_path, QMimeDatabase::MatchContent).name().toLower();
+
+    QImage image(full_path);
+
+    if (image.isNull() && mime_type.startsWith("video/"))
+    {
+        // load middle frame
+        image = extractMiddleFrame(full_path);
+    }
+
+    if (image.isNull())
+    {
+        // load image with text
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+        {
+            auto qb = file.read(1024);
+            image = QImage(initial_size, QImage::Format_ARGB32_Premultiplied);
+            QPainter painter(&image);
+            painter.setFont(QFont("Courier New", 20));
+            painter.fillRect(image.rect(), Qt::white);
+            painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString(qb).toHtmlEscaped());
+        }
     }
 
 	unsigned int exif_orientation = get_exif_orientation(full_path);
@@ -99,19 +120,19 @@ std::tuple<QPixmap,QSize,int> make_image(const QString & full_path, const QSize 
 	{
 		QPixmap pixmap;
 		pixmap.convertFromImage(image);
-		QMatrix rm;
+        QMatrix4x4 rm;
 		switch(exif_orientation)
 		{
 			case 2: rm.scale(-1,1); break;
-			case 3: rm.rotate(180); break;
+            case 3: rm.rotate(180, 0, 0, 1); break;
 			case 4: rm.scale(1,-1); break;
-			case 5: rm.scale(-1,1); rm.rotate(270); break;
-			case 6: rm.rotate(90); break;
-			case 7: rm.scale(-1,1); rm.rotate(90); break;
-			case 8: rm.rotate(270); break;
+            case 5: rm.scale(-1,1); rm.rotate(270, 0, 0, 1); break;
+            case 6: rm.rotate(90, 0, 0, 1); break;
+            case 7: rm.scale(-1,1); rm.rotate(90, 0, 0, 1); break;
+            case 8: rm.rotate(270, 0, 0, 1); break;
 			default: break;
 		}
-		image = pixmap.transformed(rm).toImage();
+        image = pixmap.transformed(rm.toTransform()).toImage();
 	}
     orig_size = image.size();
 
@@ -141,7 +162,7 @@ QPixmap make_preview(const QString & base_path, const std::set<QString> & select
 			QSize orig_size;
 			QPixmap image;
 			int file_size;
-			std::tie(image, orig_size, file_size) = make_image(full_path, total_size, thumb_size);
+            std::tie(image, orig_size, file_size) = make_image(full_path, total_size, thumb_size);
 			QRectF targetRect(w*c + (w-image.width())/2, h*r + (h-image.height())/2, image.width(), image.height());
 			QRectF sourceRect(0, 0, image.width(), image.height());
 			QPainter painter(&image_result);
@@ -167,3 +188,125 @@ QString checksum_4k(const QString &fileName)
 	}
 	return "";
 }
+
+QImage extractMiddleFrame(const QString &videoFile)
+{
+    QMediaPlayer player;
+    QVideoSink sink;
+
+    player.setVideoSink(&sink);
+
+    QImage result;
+
+    QEventLoop loop;
+
+    QObject::connect(
+        &sink,
+        &QVideoSink::videoFrameChanged,
+        [&](const QVideoFrame &frame)
+        {
+            if (!frame.isValid())
+                return;
+
+            result = frame.toImage();
+
+            if (!result.isNull())
+                loop.quit();
+        });
+
+    QObject::connect(
+        &player,
+        &QMediaPlayer::durationChanged,
+        [&](qint64 duration)
+        {
+            if (duration <= 0)
+                return;
+
+            player.setPosition(duration / 2);
+            player.play();
+        });
+
+    QObject::connect(
+        &player,
+        &QMediaPlayer::errorOccurred,
+        [&](QMediaPlayer::Error)
+        {
+            loop.quit();
+        });
+
+    QTimer timeout;
+    timeout.setSingleShot(true);
+
+    QObject::connect(
+        &timeout,
+        &QTimer::timeout,
+        [&]()
+        {
+            loop.quit();
+        });
+
+    timeout.start(10000);
+
+    player.setSource(QUrl::fromLocalFile(videoFile));
+
+    loop.exec();
+
+    player.stop();
+
+    return result;
+}
+
+/*
+QImage extractMiddleFrame(const QString &videoFile)
+{
+    // Create temporary directory
+    QTemporaryDir tempDir;
+
+    if (!tempDir.isValid())
+        return {};
+
+    QString output = tempDir.path() + "/frame.jpg";
+
+    // First get duration with ffprobe
+    QProcess probe;
+
+    probe.start(
+        "ffprobe",
+        {
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            videoFile
+        });
+
+    if (!probe.waitForFinished())
+        return {};
+
+    double duration = probe.readAllStandardOutput().trimmed().toDouble();
+    if (duration <= 0.0)
+        return {};
+
+    double middle = duration / 2.0;
+
+    // Extract one frame
+    QProcess ffmpeg;
+
+    ffmpeg.start(
+        "ffmpeg",
+        {
+            "-y",
+            "-ss", QString::number(middle),
+            "-i", videoFile,
+            "-frames:v", "1",
+            output
+        });
+
+    if (!ffmpeg.waitForFinished())
+        return {};
+
+    if (!QFileInfo::exists(output))
+        return {};
+
+    return QImage(output);
+}
+*/

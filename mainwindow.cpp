@@ -308,7 +308,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
 			   || keyEvent->key() == Qt::Key_PageUp || keyEvent->key() == Qt::Key_PageDown )
 			{
                 save_current_file_tags();
-                QCoreApplication::postEvent(ui->fillList, new QKeyEvent(*keyEvent));
+                QCoreApplication::postEvent(ui->fillList, new QKeyEvent(keyEvent->type(), keyEvent->key(), keyEvent->modifiers(), keyEvent->text()));
 				QCoreApplication::postEvent(ui->fillList, new QKeyEvent(QEvent::KeyPress, Qt::Key_F2, Qt::KeyboardModifier::NoModifier));
 				return true;
 			}
@@ -332,12 +332,12 @@ bool MainWindow::eventFilter(QObject* obj, QEvent *event)
                 if (edit == ui->tagsEdit || edit == ui->searchEdit)
                 {
                     save_current_file_tags();
-                    QCoreApplication::postEvent(ui->fillList, new QKeyEvent(*keyEvent));
+                    QCoreApplication::postEvent(ui->fillList, new QKeyEvent(keyEvent->type(), keyEvent->key(), keyEvent->modifiers(), keyEvent->text()));
                 }
                 else if (edit == ui->editTagTags)
                 {
                     save_current_tag_tags();
-                    QCoreApplication::postEvent(ui->tagList, new QKeyEvent(*keyEvent));
+                    QCoreApplication::postEvent(ui->tagList, new QKeyEvent(keyEvent->type(), keyEvent->key(), keyEvent->modifiers(), keyEvent->text()));
                 }
                 return true;
             }
@@ -760,17 +760,18 @@ void MainWindow::preview_pictures(const std::set<QString> & selected_items_text)
 	}
     else if (selected_items_text.size() == 1)
     {
-		QPixmap image;
-		int file_size;
         auto filename = *selected_items_text.begin();
+
+        QPixmap image;
+        int file_size;
         auto full_path = path::append(project->get_path(), filename);
         std::tie(image, orig_size, file_size) = make_image(full_path, ui->fillPreview->size(), ui->fillPreview->size());
 
-		ui->fillPreview->setPixmap(image);
-		if (orig_size.isValid())
-			statusSizeLabel->setText(QString::number(image.width()) + " x " + QString::number(image.height()) + " px");
-		else
-			statusSizeLabel->setText(QString::number(file_size) + " bytes");
+        ui->fillPreview->setPixmap(image);
+        if (orig_size.isValid())
+            statusSizeLabel->setText(QString::number(orig_size.width()) + " x " + QString::number(orig_size.height()) + " px");
+        else
+            statusSizeLabel->setText(QString::number(file_size) + " bytes");
 
         if (ui->facesCheckBox->checkState() == Qt::CheckState::Checked)
         {

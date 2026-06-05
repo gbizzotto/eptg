@@ -12,6 +12,8 @@
 #include <sstream>
 #include <iostream>
 
+#include <QProcess>
+#include <QTemporaryDir>
 #include <QImage>
 #include <QTableWidgetItem>
 #include <QListWidget>
@@ -250,6 +252,6 @@ void erase_if(std::map<K, T, C, A>& c, Predicate pred) {
 }
 } // namespace
 
-
+QImage extractMiddleFrame(const QString &videoFile);
 
 #endif // HELPERS_HPP

@@ -24,7 +24,7 @@
 #include <QBuffer>
 #include <QDateTime>
 #include <QtDebug>
-#include <QTextCodec>
+#include <QtCore5Compat/QTextCodec>
 
 /*!
     \typedef QExifSRational
